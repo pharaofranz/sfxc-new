@@ -522,7 +522,8 @@ void Correlation_core::integration_write_headers(int phase_center, int sourcenr)
 
 }
 
-void Correlation_core::integration_write_baselines(std::vector<Complex_buffer> &integration_buffer) {
+void Correlation_core::integration_write_baselines(std::vector<Complex_buffer> &integration_buffer,
+                                                   double binweight /* = 1. */) {
   int nstreams = correlation_parameters.station_streams.size();
   int nstations = nstreams;
   if (correlation_parameters.cross_polarize) 
@@ -569,14 +570,18 @@ void Correlation_core::integration_write_baselines(std::vector<Complex_buffer> &
     int32_t *levels = statistics[station1]->get_statistics(); // We get the number of invalid samples from the bitstatistics
     const int64_t samples_in_integration = number_ffts_in_integration * fft_size();
     const int64_t total_samples = levels[0] + levels[1] + levels[2] + levels[3] + levels[4];
+    int64_t valid_samples;
     if (station1 == station2){
-      hbaseline.weight = std::max(total_samples - levels[4], (int64_t) 0);       // The number of good samples
+      valid_samples = std::max(total_samples - levels[4], (int64_t) 0);       // The number of good samples
     }else{
       SFXC_ASSERT(levels[4] >= 0);
       SFXC_ASSERT(n_flagged[i].first >= 0);
-      hbaseline.weight = std::max(total_samples - levels[4] - n_flagged[i].first, (int64_t)0);       // The number of good samples
+      valid_samples = std::max(total_samples - levels[4] - n_flagged[i].first, (int64_t)0);       // The number of good samples
     }
-    hbaseline.weight = samples_in_integration * hbaseline.weight / total_samples;
+    // We scale valid_samples because when coherent_dedispersion is enabled the total number
+    // of samples in the slice exceeds the number of samples in the integration
+    hbaseline.weight = samples_in_integration * valid_samples / total_samples;
+    hbaseline.weight = round(binweight * hbaseline.weight);
     // Station number in the vex-file
     hbaseline.station_nr1 = stream2station[station1];
     // Station number in the vex-file

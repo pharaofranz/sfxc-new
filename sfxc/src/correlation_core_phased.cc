@@ -1,6 +1,5 @@
 #include "correlation_core_phased.h"
 #include "output_header.h"
-#include "bandpass.h"
 #include "utils.h"
 #include <set>
 
@@ -33,10 +32,6 @@ void Correlation_core_phased::do_task() {
   const int stride = input_buffers[first_stream]->front()->stride;
   const int nbuffer = std::min((size_t)number_ffts_in_integration - current_fft,
                                input_buffers[first_stream]->front()->data.size() / stride);
-  //Time ttt = Time(55870, 79405.0);
-  Time ttt = Time(55870, 0.);
-  if((RANK_OF_NODE==-10)&&(correlation_parameters.integration_start >= ttt)) 
-      std::cout <<"subint : nbuffer = " << nbuffer << ", fft="<< current_fft << "/" <<number_ffts_in_integration<< "\n";
   // Process the data from the current fft buffer
   int buf_idx=0;
   while((buf_idx < nbuffer) && (current_fft < number_ffts_in_integration)){
@@ -49,8 +44,6 @@ void Correlation_core_phased::do_task() {
       PROGRESS_MSG("node " << node_nr_ << ", "
                    << current_fft << " of " << number_ffts_in_integration);
 
-      if((RANK_OF_NODE==-10)&&(correlation_parameters.integration_start >= ttt)) 
-        std::cerr <<"subint : "<< next_sub_integration <<"; fft = "<<current_fft<<" / "<<number_ffts_in_integration<< "\n";
       sub_integration();
       for(int i = 0 ; i < phase_centers.size(); i++){
         int source_nr;
@@ -66,8 +59,6 @@ void Correlation_core_phased::do_task() {
       }
       current_integration++;
     }else if(current_fft >= next_sub_integration*number_ffts_in_sub_integration){
-      if((RANK_OF_NODE==-10)&&(correlation_parameters.integration_start >= ttt)) 
-        std::cerr <<"subint : "<< next_sub_integration << "; fft = " <<current_fft<<" / "<<number_ffts_in_integration<< "\n";
       sub_integration();
       next_sub_integration++;
     }
@@ -247,14 +238,7 @@ Correlation_core_phased::sub_integration(){
   const int n_phase_centers = phase_centers.size();
   const int n_station = number_input_streams_in_use();
   const int n_baseline = accumulation_buffers.size();
-  if((RANK_OF_NODE ==-10) && (next_sub_integration >= 15624))
-                         std::cout << "nbaseline = " << n_baseline
-                                   << ", subint = " << next_sub_integration-1
-                                   << " / " << phase_centers[0].size()
-                                   << "fft = " << current_fft
-                                   << ", nfft_per_sub="<< number_ffts_in_sub_integration
-                                   << ", tmid = " << (int64_t)tmid.get_time_usec()
-                                   << "\n";
+
   for(int i = n_station; i < n_baseline; i++){
     std::pair<size_t,size_t> &inputs = baselines[i];
     int station1 = streams_in_scan[inputs.first];

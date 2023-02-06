@@ -66,8 +66,10 @@ do_task() {
   }
 
   if (!reader_->read_new_block(input_element_)) {
+    int nframes = std::min(NSKIP, nframes_left[0]);
     // Insert invalid blocks to prevent bad data streams to stall the correlation
-    push_random_blocks(std::min(NSKIP, nframes_left[0]), 0);
+    for (size_t i = 0; i < current_time.size(); i++) 
+      push_random_blocks(nframes, i);
     return;
   }
 
@@ -93,11 +95,15 @@ do_task() {
 	// Data from the future; drop the frame, insert an invalid block and complain
 	std::cerr << RANK_OF_NODE << ": causality violation " << input_element_.start_time << std::endl;
 	push_random_blocks(1, channel);
+        for (int i = 0; i < duplicate[channel].size(); i++) 
+          push_random_blocks(1, duplicate[channel][i]);
 	return;
       }
 
       Input_element old_input_element = input_element_;
       push_random_blocks(nframes_missing, channel);
+      for (int i = 0; i < duplicate[channel].size(); i++) 
+        push_random_blocks(nframes_missing, duplicate[channel][i]);
       input_element_ = old_input_element;
     } else if (nframes_missing < 0) {
       // Data was in the past; simply drop the frame
@@ -108,7 +114,7 @@ do_task() {
     if (nframes_missing >= nframes_left[channel])
       return;
   }
-
+  
   if(input_element_.start_time != current_time[channel]){
     std::cerr.precision(16);
     std::cerr << RANK_OF_NODE << " : start_time = " << input_element_.start_time.get_time_usec()
@@ -176,6 +182,10 @@ Input_data_format_reader_tasklet::fetch_next_time_interval() {
 
   data_read_ += input_element_.buffer->data.size();
   push_element();
+  for (int i = 0, ch = input_element_.channel; i < duplicate[ch].size(); i++) {
+    input_element_.channel = duplicate[ch][i];
+    push_element();
+  }
 }
 
 void
@@ -224,8 +234,9 @@ Input_data_format_reader_tasklet::set_parameters(const Input_node_parameters &pa
     for (int i = 0; i < params.channels.size(); i++) {
       int thread = params.channels[i].tracks[0];
       for (int j = 0; j < params.channels.size(); j++) {
-	if (j != i && params.channels[j].tracks[0] == thread)
+	if (j != i && params.channels[j].tracks[0] == thread) {
 	  duplicate[i].push_back(j);
+        }
       }
     }
   } else {
@@ -245,6 +256,7 @@ Input_data_format_reader_tasklet::set_parameters(const Input_node_parameters &pa
 void
 Input_data_format_reader_tasklet::
 allocate_element() {
+  //if (RANK_OF_NODE == 3) std::cerr << "nfree = " << memory_pool_->number_free_element() << " / " << memory_pool_->size() << "\n";
   input_element_.buffer = memory_pool_->allocate();
   input_element_.invalid.resize(0);
   input_element_.channel=0;

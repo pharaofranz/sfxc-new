@@ -84,7 +84,7 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
     DT = ((start_mjd - polyco->tmid) + fft_duration/us_per_day)*1440;
   int N = polyco->coef.size();
   start_phase = 0;
-  for (int i=N-1; i>0; i--){
+  for (int i=N-1; i>0; i--) {
     start_phase = (start_phase + polyco->coef[i])*DT;
   }
   start_phase += (polyco->ref_phase-floor(polyco->ref_phase))+DT*60*polyco->ref_freq + polyco->coef[0]; 
@@ -105,18 +105,20 @@ Correlation_core_pulsar::set_parameters(const Correlation_parameters &parameters
   if(coherent_dedispersion){
     double f = parameters.dedispersion_ref_frequency;
     for(int i = 0; i < fft_size() + 1 ;i++)
-      offsets[i] = 4148.808 * polyco->DM * (1 / (f*f) - inv_freq_obs2) * freq;
+      offsets[i] =  4149.3775933609958 * polyco->DM * (1 / (f*f) - inv_freq_obs2) * freq;
   }else{
     for(int i = 0; i < fft_size() + 1 ;i++){ 
       double f = base_freq + i * dfreq;
-      offsets[i] = 4148.808 * polyco->DM * (1 / (f*f) - inv_freq_obs2) * freq;
+      offsets[i] = 4149.3775933609958 * polyco->DM * (1 / (f*f) - inv_freq_obs2) * freq;
     }
   }
   gate.begin = pulsar.interval.start;
   gate.end = pulsar.interval.stop;
 
-  if(accumulation_buffers.size()!=nbins)
+  if(accumulation_buffers.size()!=nbins) {
     accumulation_buffers.resize(nbins);
+    binweights.resize(nbins);
+  }
   get_input_streams();
 }
 
@@ -130,10 +132,6 @@ void Correlation_core_pulsar::do_task() {
   if (current_fft == 0) {
     integration_initialise();
   }
-
-  if(RANK_OF_NODE ==-16) std::cerr << "fft = " << current_fft 
-                                   << " / " << number_ffts_in_integration
-                                   << "\n";
 
   for (size_t i=0; i < number_input_streams_in_use(); i++) {
     int stream = streams_in_scan[i];
@@ -157,6 +155,7 @@ void Correlation_core_pulsar::do_task() {
       }else if (phase + 1 < gate.end)
         bin = (int)((phase + 1 - gate.begin)*(nbins-1)/len) + 1;
       integration_step(accumulation_buffers[bin], buf);
+      binweights[bin] += fft_size();
     }else{
       integration_step(dedispersion_buffer, buf);
       dedisperse_buffer();
@@ -170,30 +169,22 @@ void Correlation_core_pulsar::do_task() {
       std::cerr << "popped nfft = " << nbuffer << ", from stream "<< stream << "\n";
     input_buffers[stream]->pop();
   }
-  if(RANK_OF_NODE == -10) std::cerr << "fft = " << current_fft 
-                                   << " / " << number_ffts_in_integration
-                                   << "\n";
  
-  if( (RANK_OF_NODE == 10) && (current_fft > number_ffts_in_integration -100))
-    std::cerr << RANK_OF_NODE << " : current_fft = " << current_fft
-              << "/" << number_ffts_in_integration <<"\n";
   if (current_fft == number_ffts_in_integration) {
     PROGRESS_MSG("node " << node_nr_ << ", "
                  << current_fft << " of " << number_ffts_in_integration);
 
-    if(RANK_OF_NODE ==16) std::cerr << "fft = " << current_fft 
-                                     << " / " << number_ffts_in_integration
-                                     << "\n";
-
     Time tmid = correlation_parameters.integration_start + 
                 correlation_parameters.integration_time/2;
     find_invalid();
-    for(int bin=0;bin<nbins;bin++){
+    const int64_t total_samples = number_ffts_in_integration * fft_size();
+    for(int bin=0;bin<nbins;bin++) {
       integration_normalize(accumulation_buffers[bin]);
       // Apply calibration tables
       calibrate(accumulation_buffers[bin], tmid);
       integration_write_headers(0, bin);
-      integration_write_baselines(accumulation_buffers[bin]);
+      double weight = (double)binweights[bin] / total_samples;
+      integration_write_baselines(accumulation_buffers[bin], weight);
     }
     current_integration++;
   }
@@ -223,7 +214,8 @@ void Correlation_core_pulsar::integration_initialise() {
       memset(&accumulation_buffers[bin][j][0], 0, size*sizeof(std::complex<FLOAT>));
     }
   }
-
+  memset(&binweights[0], 0, nbins * sizeof(int64_t));
+  
   for (int j=0; j<dedispersion_buffer.size(); j++) {
     SFXC_ASSERT(dedispersion_buffer[j].size() == size);
     memset(&dedispersion_buffer[j][0], 0, size*sizeof(std::complex<FLOAT>));
@@ -271,17 +263,21 @@ void Correlation_core_pulsar::dedisperse_buffer() {
   // first compute the phase bins
   SFXC_ASSERT(bins.size() == fft_size() + 1);
   for (int j=0; j < fft_size() + 1; j++) {
+    int bin;
     double phase = obs_freq_phase - offsets[j];
     phase = phase - floor(phase);
-    if (phase >= gate.begin){
+    if (phase >= gate.begin){ 
       if(phase < gate.end)
-        bins[j] = (int)((phase-gate.begin)*(nbins-1)/len) + 1;
+        bin = (int)((phase-gate.begin)*(nbins-1)/len) + 1;
       else
-        bins[j] = 0;
-    }else if (phase + 1 < gate.end){
-      bins[j] = (int)((phase + 1 - gate.begin)*(nbins-1)/len) + 1;
-    }else
-      bins[j] = 0;
+        bin = 0;
+    } else if (phase + 1 < gate.end) {
+      bin = (int)((phase + 1 - gate.begin)*(nbins-1)/len) + 1;
+    }else {
+      bin = 0;
+    }
+    bins[j] = bin;
+    binweights[bin] += 1;
   }
 
   // TODO check performance agains loop interchange

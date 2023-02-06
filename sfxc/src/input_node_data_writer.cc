@@ -134,7 +134,7 @@ do_task() {
     std::cerr.precision(16);
     if((RANK_OF_NODE == -3) &&(stream_nr >= 0))
       std::cerr << "(NEW) to buffer = "<< frames_to_buffer<< ", block =" 
-                << block_size << ", t = " << buffer_time.get_time_usec()
+                << block_size << ", t = " << buffer_time.get_time_usec() << "us"
                 << ", stream = " << stream_nr << ", slice size = " << data_writer.slice_size
                 << "\n";
 
@@ -142,18 +142,14 @@ do_task() {
     delay_index = 0; 
     sync_stream = true;
   }
-  if(RANK_OF_NODE == -3)
-    std::cerr << RANK_OF_NODE << " : " << _current_time << ", start = " << input_element.start_time 
-              << ", diff = " << (old_time - input_element.start_time).get_time_usec()<< "\n";
-  old_time = input_element.start_time;
   if(sync_stream){
     // Move to the next integer delay change
-    while((delay_index < delay_size - 1) && (cur_delay[delay_index+1].time <= _current_time))
+    while((delay_index < delay_size - 1) && (cur_delay[delay_index+1].time <= _current_time + byte_length))
        delay_index++;
     int64_t dsamples = _current_time.diff_samples(input_element.start_time);
     byte_offset = dsamples*bits_per_sample/8 + cur_delay[delay_index].bytes;
     std::cerr.precision(16);
-    if((RANK_OF_NODE==-3) && (stream_nr == 0)) 
+    if ((RANK_OF_NODE<=-4) && (stream_nr == 0)) 
                       std::cerr << RANK_OF_NODE << " : "
                                 << "SYNC, byte_offsey = " << byte_offset 
                                 << ", byte delay=" << cur_delay[delay_index].bytes

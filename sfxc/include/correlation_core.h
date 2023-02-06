@@ -68,7 +68,7 @@ protected:
   void integration_normalize(std::vector<Complex_buffer> &integration_buffer);
   void calibrate(std::vector<Complex_buffer> &buffer, Time tmid);
   void integration_write_headers(int phase_center, int bin);
-  void integration_write_baselines(std::vector<Complex_buffer> &integration_buffer);
+  void integration_write_baselines(std::vector<Complex_buffer> &integration_buffer, double binweight = 1.0);
   void tsys_write();
   void sub_integration();
   void find_invalid();

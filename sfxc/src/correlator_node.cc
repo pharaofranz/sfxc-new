@@ -140,7 +140,6 @@ void Correlator_node::start_threads() {
 void Correlator_node::stop_threads() {
   reader_thread_.stop();
   bit2float_thread_.stop();
-
   /// We wait the termination of the threads
   threadpool_.wait_for_all_termination();
 }
@@ -400,8 +399,12 @@ Correlator_node::set_parameters() {
       }
     }
   }
-  int nBins=1;
+  int n_streams_in_scan = parameters.station_streams.size();
+  int nstations = n_streams_in_scan;
+  if (parameters.cross_polarize)
+    nstations /= 2;
   coherent_dedispersion = false;
+  int nBins=1;
   if (correlator_node_type == CORRELATOR_NODE_NORMAL) {
     nBins = parameters.n_phase_centers;
     correlation_core->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number());
@@ -442,6 +445,7 @@ Correlator_node::set_parameters() {
       correlation_core->set_parameters(parameters, akima_tables, uvw, get_correlate_node_number());
     } else if(correlator_node_type == CORRELATOR_NODE_FILTERBANK) {
       correlation_core = correlation_core_filterbank;
+      nBins = nstations; 
       double DM = 0;
       bool no_intra_channel_dedispersion = false;
       if (is_pulsar) {
@@ -460,9 +464,10 @@ Correlator_node::set_parameters() {
       delay_modules[i]->set_parameters(parameters, akima_tables[i]);
     }
   }
+  bool filterbank = correlator_node_type == CORRELATOR_NODE_FILTERBANK;
   for (size_t i=0; i<windowing.size(); i++) {
     if (windowing[i] != Windowing_ptr()) {
-      windowing[i]->set_parameters(parameters);
+      windowing[i]->set_parameters(parameters, filterbank);
     }
   }
   bit2float_thread_.set_parameters(parameters, akima_tables);
@@ -471,10 +476,6 @@ Correlator_node::set_parameters() {
   status = CORRELATING;
 
   // set the output stream
-  int n_streams_in_scan = parameters.station_streams.size();
-  int nstations = n_streams_in_scan;
-  if (parameters.cross_polarize)
-    nstations /= 2;
   int nBaselines, size_of_one_baseline;
   if ((correlator_node_type == CORRELATOR_NODE_FILTERBANK) ||
       (correlator_node_type == CORRELATOR_NODE_PHASED)) {

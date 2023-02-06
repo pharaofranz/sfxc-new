@@ -25,7 +25,7 @@ public:
   void do_task();
   bool has_work();
   void empty_output_queue();
-  void set_parameters(const Correlation_parameters &parameters);
+  void set_parameters(const Correlation_parameters &parameters, bool filterbank);
   void connect_to(Delay_queue_ptr buffer);
   /// Get the output
   Correlation_queue_ptr get_output_buffer();

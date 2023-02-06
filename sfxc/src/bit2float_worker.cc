@@ -271,7 +271,6 @@ set_new_parameters(const Correlation_parameters &parameters, Delay_table_akima &
     stream_idx++;
   if (stream_idx == parameters.station_streams.size()) {
     // Data stream is not participating in current time slice
-    std::cout << "NOT IN SLICE : " << stream_nr << "\n";
     return;
   }
 

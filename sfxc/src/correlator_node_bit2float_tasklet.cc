@@ -41,7 +41,6 @@ void Correlator_node_bit2float_tasklet::do_execute(){
       }
     }
     if ( processed_samples < MINIMUM_PROCESSED_SAMPLES ){
-      //sched_yield();
       usleep(1000);
     }
   }
@@ -65,7 +64,7 @@ Correlator_node_bit2float_tasklet::connect_to(int nr_stream, bit_statistics_ptr 
 
 void 
 Correlator_node_bit2float_tasklet::set_parameters(const Correlation_parameters &param,
-                                                  std::vector<Delay_table_akima> &delays){
+                                                  std::vector<Delay_table_akima> &delays) {
   for(int i=0; i<bit2float_workers_.size(); i++)
     bit2float_workers_[i]->set_new_parameters(param, delays[i]);
 }

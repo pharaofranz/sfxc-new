@@ -11,6 +11,7 @@ Windowing::~Windowing(){
     while(output_queue->size() > 0)
       output_queue->pop();
   }
+  SFXC_ASSERT(output_memory_pool.full());
 }
 
 void
@@ -18,7 +19,9 @@ Windowing::do_task(){
   Delay_queue_element input = input_queue->front_and_pop();
   Memory_pool_vector_element<FLOAT> &input_data = input->data;
   const int nfft = std::min(nffts_per_integration - current_fft,
-                            (int)input_data.size() / fft_size_correlation);
+                            (int)input_data.size() * 2 / fft_rot_size);
+  int x = (int)input_data.size() * 2 / fft_rot_size;
+  SFXC_ASSERT(x * fft_rot_size / 2 == input_data.size());
   if(nfft == 0)
     return;
   // Allocate new output buffer
@@ -27,15 +30,14 @@ Windowing::do_task(){
   SFXC_ASSERT(nfft > 0)
   cur_output->data.resize(output_stride*nfft);
   int out_fft = 0;
-
   const int size = input_data.size();
   int i = std::min(samples_to_skip, size);
   current_time.inc_samples(i);
   while((i < size) && (out_fft < nfft)){
     const int fft_step = std::min(fft_rot_size/2 - index, size-i);
-    if(window_func == SFXC_WINDOW_NONE){
+    if (window_func == SFXC_WINDOW_NONE) {
       memcpy(&buffers[buf][index], &input_data[i], fft_step*sizeof(FLOAT));
-    }else{
+    } else {
       SFXC_MUL_F(&input_data[i], 
                  &window[fft_rot_size/2 + index], 
                  &buffers[buf][fft_rot_size/2 + index],
@@ -47,10 +49,10 @@ Windowing::do_task(){
     }
     index += fft_step;
     // Do the final fft from time to frequency
-    if(index == fft_rot_size/2){
-      fft_t2f.rfft(&buffers[buf][0], &temp_fft_buffer[0]);
+    if(index == fft_rot_size/2) {
+      fft_t2f.rfft(&buffers[buf][0], &temp_fft_buffer[temp_fft_offset]);
       memcpy(&cur_output->data[out_fft * output_stride], 
-             &temp_fft_buffer[temp_fft_offset], 
+             &temp_fft_buffer[output_offset], 
              (fft_size_correlation+1) * sizeof(std::complex<FLOAT>));
       out_fft += 1;
       index = 0;
@@ -60,11 +62,15 @@ Windowing::do_task(){
     i += fft_step;
     current_time.inc_samples(fft_step);
   }
-  samples_to_skip = std::max(0, samples_to_skip-size);
+  samples_to_skip = std::max(0, samples_to_skip - size);
 
-  if (RANK_OF_NODE == -5)
+  if ((RANK_OF_NODE == -25) && (stream_nr == 0))
     std::cerr << "nffts_per_integration = " << nffts_per_integration
-              << ", current_fft = " << current_fft << "\n"; 
+              << ", current_fft = " << current_fft  
+              << ", nfft = " << nfft
+              << ", out_fft = " << out_fft
+              << ", newfft = " << current_fft + out_fft
+              << "\n";
   if(out_fft > 0){
     current_fft += out_fft;
     if (out_fft != nfft)
@@ -99,7 +105,7 @@ Windowing::get_output_buffer() {
 }
 
 void 
-Windowing::set_parameters(const Correlation_parameters &parameters){
+Windowing::set_parameters(const Correlation_parameters &parameters, bool filterbank){
   int stream_idx = 0;
   while ((stream_idx < parameters.station_streams.size()) &&
          (parameters.station_streams[stream_idx].station_stream != stream_nr))
@@ -115,11 +121,14 @@ Windowing::set_parameters(const Correlation_parameters &parameters){
   integration_start = parameters.integration_start;
   current_time = parameters.stream_start;
   current_time.set_sample_rate(parameters.station_streams[stream_idx].sample_rate);
-  //samples_to_skip = (int)round((integration_start-current_time).get_time_usec() * 
-  //                             (parameters.station_streams[stream_idx].sample_rate * 1e-6));
-  // NB: for re-dispersed data we skip no samples
-  samples_to_skip = 0;
-  if(RANK_OF_NODE == 5){
+  if (filterbank) {
+    // NB: In filterbank node we pass all samples because the data is potentially re-dispersed
+    samples_to_skip = 0;
+  } else {
+    samples_to_skip = (int)round((integration_start-current_time).get_time_usec() * 
+                                 (parameters.station_streams[stream_idx].sample_rate * 1e-6));
+  }
+  if(RANK_OF_NODE == 10){
   std::cout.precision(16);
   std::cout << RANK_OF_NODE << " : fft_rot_size = " << fft_rot_size << "\n";
   std::cout << RANK_OF_NODE << " : current_time = " << current_time
@@ -132,12 +141,15 @@ Windowing::set_parameters(const Correlation_parameters &parameters){
   current_fft = 0;
   index = 0;
 
-  // NB: for re-dispersed data send all data to correlation_core
-  nffts_per_integration = parameters.slice_size / parameters.fft_size_correlation;
-//      Control_parameters::nr_ffts_to_output_node(
-//        parameters.integration_time,
-//        parameters.sample_rate,
-//        parameters.fft_size_correlation);
+  if (filterbank) {
+    nffts_per_integration = parameters.slice_size / fft_size_correlation;
+  } else {
+    nffts_per_integration = 
+      Control_parameters::nr_ffts_to_output_node(
+        parameters.integration_time,
+        parameters.sample_rate,
+        parameters.fft_size_correlation);
+  }
   if (window_func != SFXC_WINDOW_NONE)
     nffts_per_integration -= 1;
   output_stride = parameters.fft_size_correlation + 4; // ensure 8 bytes allignment

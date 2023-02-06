@@ -9,23 +9,30 @@
 #include "sfxc_fft_float.h"
 #endif
 
-class Coherent_dedispersion{
+class Coherent_dedispersion {
 public:
   typedef Correlator_node_types::Delay_memory_pool   Delay_memory_pool;
   typedef Correlator_node_types::Delay_queue         Delay_queue;
   typedef Correlator_node_types::Delay_queue_ptr     Delay_queue_ptr;
   typedef Delay_queue::value_type                    Delay_queue_element;
+
+  typedef Memory_pool_vector_element<std::complex<FLOAT> > Complex_vector;
+  typedef Memory_pool_vector_element<FLOAT>                Real_vector;
+  typedef boost::shared_ptr<Complex_vector>                Complex_vector_ptr;
+  typedef boost::shared_ptr<Real_vector>                   Real_vector_ptr;
+
   typedef Pulsar_parameters::Pulsar                  Pulsar;
 
-  Coherent_dedispersion(int stream_nr_, SFXC_FFT &fft_, 
-                      Memory_pool_vector_element<std::complex<FLOAT> > &filter_,
-                      Memory_pool_vector_element<std::complex<FLOAT> > &dispersion_buffer_,
-                      Memory_pool_vector_element<FLOAT> &zeropad_buffer_ );
+  Coherent_dedispersion(int stream_nr_);
   ~Coherent_dedispersion();
   void do_task();
   bool has_work();
   void empty_output_queue();
-  void set_parameters(const Correlation_parameters &parameters);
+  void set_parameters(const Correlation_parameters &correlation_parameters,
+                      Complex_vector_ptr filter_ptr_, 
+                      Complex_vector_ptr dedispersion_buffer_ptr_,
+                      Real_vector_ptr zeropad_buffer_ptr_,
+                      boost::shared_ptr<SFXC_FFT>  fft);
   void connect_to(Delay_queue_ptr buffer);
   /// Get the output
   Delay_queue_ptr get_output_buffer();
@@ -39,15 +46,15 @@ private:
   int fft_size_dedispersion, fft_size_correlation;
   int total_input_fft; // FIXME debug info
   int n_fft_dedispersion;
-  double sample_rate;
   Time current_time, start_time, stop_time;
-  Memory_pool_vector_element<std::complex<FLOAT> > &filter, &dedispersion_buffer;
-  Memory_pool_vector_element<FLOAT> time_buffer[2], &zeropad_buffer;
+  Complex_vector_ptr filter_ptr, dedispersion_buffer_ptr; 
+  Real_vector_ptr zeropad_buffer_ptr;
+  Real_vector time_buffer[2]; 
   Delay_queue_element cur_output;
 
   Delay_memory_pool output_memory_pool;
   Delay_queue_ptr input_queue;
   Delay_queue_ptr output_queue;
-  SFXC_FFT  &fft;
+  boost::shared_ptr<SFXC_FFT>  fft_ptr;
 };
 #endif
