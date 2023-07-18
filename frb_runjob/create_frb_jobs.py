@@ -151,25 +151,30 @@ def create_polyco(polycofile, source_name, fmid, burst):
         f.write(f"0.000000            0.500000000000    COE  1600 3    {fmid:.2f}\n")
         f.write(f"0.00000000000000000e+00  0.00000000000000000e+00  0.00000000000000000e+00\n")
 
-def create_file_list(vbsscans, burst):
+def create_file_list(vbsscans, burst, store_all_datasources):
     tguard = timedelta(seconds=2) # how much time around burst to include
     for name, vbsscan in vbsscans.items():
         if (burst.bursttime >= vbsscan['tfirst']) and (burst.bursttime < vbsscan['tlast']):
             files = vbsscan['files']
-            n_fragment = files[-1].index - files[0].index + 1
-            if n_fragment > 1:
-                dt = (vbsscan['tlast'] - vbsscan['tfirst']) / (n_fragment - 1)
+            if store_all_datasources:
+              first = files[0].index
+              last = files[-1].index
             else:
-                dt = timedelta(seconds=2) # if there is only one fragment the value doesn't matter
-            first = max(int(pl.floor((burst.bursttime - vbsscan['tfirst'] - tguard) / dt)) + files[0].index, 
-                    files[0].index)
-            last = min(int(pl.ceil((burst.bursttime - vbsscan['tfirst'] + tguard) / dt)) + files[0].index, 
-                    files[-1].index)
+              # Just include VDIF file close to the burst
+              n_fragment = files[-1].index - files[0].index + 1
+              if n_fragment > 1:
+                  dt = (vbsscan['tlast'] - vbsscan['tfirst']) / (n_fragment - 1)
+              else:
+                  dt = timedelta(seconds=2) # if there is only one fragment the value doesn't matter
+              first = max(int(pl.floor((burst.bursttime - vbsscan['tfirst'] - tguard) / dt)) + files[0].index, 
+                      files[0].index)
+              last = min(int(pl.ceil((burst.bursttime - vbsscan['tfirst'] + tguard) / dt)) + files[0].index, 
+                      files[-1].index)
 
             return ["file://" + f.filename for f in files if (f.index >= first) and (f.index <= last)]
     return []
 
-def create_ctrl_files(vex, ctrl, bursts, flexbufs):
+def create_ctrl_files(vex, ctrl, bursts, flexbufs, store_all_datasources):
     try:
         number_channels = ctrl["number_channels"]
     except KeyError:
@@ -237,7 +242,7 @@ def create_ctrl_files(vex, ctrl, bursts, flexbufs):
                 fbs = [fb for fb, item in flexbufs.items() if station in item.keys()]
                 # get list of files covering the burst for station
                 for fb in fbs:
-                    filelist = create_file_list(flexbufs[fb][station], burst)
+                    filelist = create_file_list(flexbufs[fb][station], burst, store_all_datasources)
                     if len(filelist) > 0:
                         fbmap[station_] = fb
                         break
@@ -303,11 +308,11 @@ def create_ctrl_files(vex, ctrl, bursts, flexbufs):
             with open(searchctrlfile, 'w') as f:
                 json.dump(outctrl, f, indent=4)
 
-def main(vex, ctrl):
+def main(vex, ctrl, store_all_datasources):
     exper = vex['GLOBAL']['EXPER']
     flexbufs = get_file_list(exper)
     bursts = create_burst_list(exper, vex, ctrl)
-    create_ctrl_files(vex, ctrl, bursts, flexbufs)
+    create_ctrl_files(vex, ctrl, bursts, flexbufs, store_all_datasources)
     # Make sure delay directory exists
     os.makedirs("delays", exist_ok=True)
 
@@ -315,8 +320,10 @@ if __name__ == "__main__":
     p = ArgumentParser(description="Create jobs for FRB bursts")
     p.add_argument("vex", type=str, help="VEX file of experiment")
     p.add_argument("ctrl", type=str, help="JSON control file containing the bursts")
+    p.add_argument("-a", "--all-vdif", default = False, action = "store_true",
+                   help="Add all VDIF files from scan to ctrl file, not just the files containing the burst")
     args = p.parse_args()
     vex = Vex(args.vex)
     with open(args.ctrl, 'r') as f:
         ctrl = json.load(f)
-    main(vex, ctrl)
+    main(vex, ctrl, args.all_vdif)
