@@ -227,7 +227,16 @@ def get_search_window(vex, ctrl, header, source, delay_file_name):
 
     return W0, N
 
-def gatesearch(vex_file, ctrl_file, interactive, machines, bif, eif, down_freq, down_time, disable_create, write_ctrl, gatesearch_filename=''):
+def get_pulse_snr(data, tsamp, pulse_begin, pulse_end):
+    N = len(data)
+    w = pulse_end - pulse_begin
+    d = data[pulse_begin:pulse_end].sum()
+    noise_power = data.mean()
+    noise_std = data.std()
+    snr = (d - noise_power * w) / (np.sqrt(w) * noise_std)
+    return snr
+
+def gatesearch(vex_file, ctrl_file, interactive, machines, bif, eif, down_freq, down_time, disable_create, write_ctrl, do_gatesearch, gatesearch_filename=''):
     vex = Vex(vex_file)
     with open(ctrl_file, 'r') as f:
         ctrl = json.load(f)
@@ -263,35 +272,55 @@ def gatesearch(vex_file, ctrl_file, interactive, machines, bif, eif, down_freq, 
 
     # Find time range around pulse (taking into acount geometric delay and dispersion) to search
     source = vex['SCHED'][scan]['source']
-    win_start, Nwin = get_search_window(vex, search_ctrl, header, source, delay_file_name)
-    win_end = win_start + Nwin
-    # Do the actual search
-    d2 = data[:, bchan:echan].mean(axis=1)
-    pulse_begin, pulse_end, pulse_snr = get_pulse(d2[win_start:win_end], d2.mean(), d2.std(), win_start)
-
     integr_start = vextime(ctrl['start'])
     tsamp = header['tsamp']
-    # Fake pulsar has period 2 seconds
-    if integr_start.second % 2 == 0:
-        gate_begin = pulse_begin * tsamp / 2
-        gate_end = pulse_end * tsamp / 2 
-    else:
-        gate_begin = pulse_begin * tsamp / 2 + 0.5
-        gate_end = pulse_end * tsamp / 2 + 0.5
-        if gate_begin >= 1.0:
-            gate_begin = (gate_begin % 1.)
-            gate_end = (gate_end % 1.)
+    if do_gatesearch:
+      #perform gatesearch
+      win_start, Nwin = get_search_window(vex, search_ctrl, header, source, delay_file_name)
+      win_end = win_start + Nwin
+      # Do the actual search
+      d2 = data[:, bchan:echan].mean(axis=1)
+      pulse_begin, pulse_end, pulse_snr = get_pulse(d2[win_start:win_end], d2.mean(), d2.std(), win_start)
 
-    print(f'Pulse_start = {pulse_begin,} , pulse_end = {pulse_end,}, pulse_snr = {pulse_snr}')
-    print(f'            "interval": [')
-    print(f'                           {gate_begin},')
-    print(f'                           {gate_end}')
-    print(f'                        ],')
-    ctrl['pulsars'][source]['interval'] = [gate_begin, gate_end]
-    if (write_ctrl):
-        with open(ctrl_file, 'w') as f:
-            json.dump(ctrl, f, indent=4)
-     
+      # Fake pulsar has period 2 seconds
+      if integr_start.second % 2 == 0:
+          gate_begin = pulse_begin * tsamp / 2
+          gate_end = pulse_end * tsamp / 2 
+      else:
+          gate_begin = pulse_begin * tsamp / 2 + 0.5
+          gate_end = pulse_end * tsamp / 2 + 0.5
+          if gate_begin >= 1.0:
+              gate_begin = (gate_begin % 1.)
+              gate_end = (gate_end % 1.)
+
+      print(f'Pulse_start = {pulse_begin,} , pulse_end = {pulse_end,}, pulse_snr = {pulse_snr}')
+      print(f'            "interval": [')
+      print(f'                           {gate_begin},')
+      print(f'                           {gate_end}')
+      print(f'                        ],')
+      ctrl['pulsars'][source]['interval'] = [gate_begin, gate_end]
+      if (write_ctrl):
+          with open(ctrl_file, 'w') as f:
+              json.dump(ctrl, f, indent=4)
+    else:
+      # Gatesearch disabled, use existing gate from vexfile
+      try:
+        gate_begin, gate_end = ctrl['pulsars'][source]['interval']
+      except KeyError:
+        print(f"Error: no gate interval for source '{source}' in control file but gatesearch is disabled")
+        exit(1)
+      # Fake pulsar has period 2 seconds
+      if integr_start.second % 2 == 0:
+          pulse_begin = int(2 * gate_begin / tsamp)
+          pulse_end = int(2 * gate_end / tsamp)
+      else:
+          pulse_begin = int(2 * (gate_begin - 0.5) / tsamp)
+          pulse_end = int(2 * (gate_end - 0.5) / tsamp)
+          if pulse_begin <= 0.0:
+              pulse_begin += int(1.0 / tsamp)
+              pulse_end += int(1.0 / tsamp)
+      pulse_snr = get_pulse_snr(data[:, bchan:echan].mean(axis=1), tsamp, pulse_begin, pulse_end)
+       
     # plot results
     create_plots(data, tsamp, pulse_begin, pulse_end, pulse_snr, bchan, echan, down_freq, down_time, interactive, gatesearch_filename)
 
@@ -374,6 +403,10 @@ if __name__ == "__main__":
     p.add_argument("-m", "--machines",
                    default="k", type=str,
                    help="Machines to run correlator nodes on, default='k', allowed values are k,l,m,n,o ; it is also possible to list individual machines e.g. k1,k2")
+    p.add_argument("-n", "--no-search",
+                    default = False,
+                    action = "store_true",
+                    help="Don't gate search, use existing gate instead.")
     p.add_argument("-s", "--simulate",
                     default = False,
                     action = "store_true",
@@ -383,4 +416,4 @@ if __name__ == "__main__":
     args = p.parse_args()
     machines = args.machines.split(',')
     for ctrlname in args.ctrlfiles:
-        gatesearch(args.vex, ctrlname, args.interactive, machines, args.bif, args.eif, args.down_freq, args.down_time, args.disable_create, not args.simulate)
+        gatesearch(args.vex, ctrlname, args.interactive, machines, args.bif, args.eif, args.down_freq, args.down_time, args.disable_create, not args.simulate, not args.no_search)
