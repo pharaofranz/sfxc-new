@@ -9,7 +9,7 @@ import numpy as np
 import gnuplotlib as pg
 from multiprocessing import Process, Pool
 from datetime import datetime, timedelta
-from urlparse import urlparse
+from urllib.parse import urlparse
 from shutil import copyfile
 from vex import Vex 
 # These two modules are part of sfxc2mark4
@@ -22,7 +22,7 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, weights, stats
   stations = sorted(set([x[0] for x in integr.keys()]))
   baselines = sorted(filter(lambda x:x[0] != x[1], integr.keys()))
   setup_station = ctrl["setup_station"] if "setup_station" in ctrl else ctrl["stations"][0]
-  exper_name = global_header.exper.rstrip('\0')
+  exper_name = global_header.exper.decode().rstrip('\0')
 
   channels, bbcs = create_channel_mapping(exper, scan["mode"], setup_station)
   try:
@@ -71,22 +71,14 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, weights, stats
     html.write("<th>{}</th>".format(station))
   for bl in baselines:
     html.write("<th>{}-{}</th>".format(*bl))
-  # Create sorted list of channels, sorting order polarizations: RCP-RCP, RCP-LCP, LCP-LCP, LCP-RCP
-  def srt_chan(a,b):
-    c = cmp(a[:-1], b[:-1])
-    if c==0:
-      if a[-2] == 0:
-        return cmp(a[-1], b[-1])
-      else:
-        return cmp(b[-1], a[-1])
-    return c
 
   channels_in_data = set()
   for bl in baselines:
     for ch in integr[bl].keys():
       channels_in_data.add(ch)
-  channels_in_data = sorted(channels_in_data, cmp=srt_chan)
-
+  # Create sorted list of channels, sorting order polarizations: RCP-RCP, RCP-LCP, LCP-LCP, LCP-RCP
+  channels_in_data = sorted(channels_in_data, key = lambda a: (a[0], a[1], (1 - a[2]) * a[3] + a[2] * (3 - a[3])))
+ 
   # print all (auto-) correlations
   for ch in channels_in_data:
     channel1 = (ch.freqnr, ch.sideband, ch.pol1)
@@ -226,6 +218,7 @@ def generate_plots(integr, weights, channels, outdir, ap, integr_time):
       job["outdir"] = outdir
       if len(ch) == 3:
         job["pol1"] = ch.pol
+        job["pol2"] = ch.pol
       else:
         job["pol1"] = ch.pol1
         job["pol2"] = ch.pol2
@@ -240,7 +233,6 @@ def generate_plots(integr, weights, channels, outdir, ap, integr_time):
       plots[bl][ch] = results[i]
       i += 1
   return plots
-
 
 def plot_thread(job):
   opts_small = {'terminal': 'png font ",9" size 300,200', '_with':'lines', 'unset': 'grid', '_set': 'format y "%1.0e"'}
@@ -263,10 +255,11 @@ def plot_thread(job):
   if bl[0] == bl[1]:
     st = bl[0]
     sb = 'lsb' if job["sb"] == 0 else 'usb'
-    pol = 'rcp' if job["pol1"] == 0 else 'lcp'
+    pol1 = 'rcp' if job["pol1"] == 0 else 'lcp'
+    pol2 = 'rcp' if job["pol2"] == 0 else 'lcp'
     ampl = abs(vis) / max(1, job["ap"])
     # plot spectrum (amplitude)
-    basename = "{st}_{pol}_freq{freq}_{sb}".format(st=st, pol=pol, freq=job["freqnr"], sb=sb)
+    basename = "{st}_{pol1}_{pol2}_freq{freq}_{sb}".format(st=st, pol1=pol1, pol2=pol2, freq=job["freqnr"], sb=sb)
     name = job["outdir"] + '/' + basename + '.png'
     name_large = job["outdir"] + '/' + basename + '_large.png'
     plot = {'basename': basename}
@@ -383,9 +376,10 @@ if __name__ == "__main__":
 
     for station in data.stats:
       for ch in data.stats[station]:
-          st = data.stats[station][ch]
-          n = float(sum(st))
-          stats[station][ch] += np.array(st) / n         
+        st = data.stats[station][ch]
+        n = float(sum(st))
+        if (n > 0):
+          stats[station][ch] += np.array(st) / n
     for bl in data.vis:
       for ch in data.vis[bl]:
         integr[bl][ch] += data.vis[bl][ch].vis

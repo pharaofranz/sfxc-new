@@ -147,7 +147,7 @@ class experiment:
             setup_station = ctrl["setup_station"]
           except KeyError:
             setup_station = ctrl["stations"][0]
-          print "scan = '{}', mode = '{}', start = '{}', stop = '{}', setup = '{}'".format(scan, vex['SCHED'][scan]['mode'], tstart, tstop, setup_station)
+          print("scan = '{}', mode = '{}', start = '{}', stop = '{}', setup = '{}'".format(scan, vex['SCHED'][scan]['mode'], tstart, tstop, setup_station))
           result = {}
           mode = vex['SCHED'][scan]['mode']
           result['mode'] = mode
@@ -160,5 +160,5 @@ class experiment:
           result['allfreq'] = self.modes[mode]['byname']
           return result
 
-    print "Error, coulnd't find find scan for t =", datatime, ', source = ', data.source
+    print("Error, coulnd't find find scan for t =", datatime, ', source = ', data.source)
     exit(1)

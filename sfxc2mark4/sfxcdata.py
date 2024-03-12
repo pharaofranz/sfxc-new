@@ -19,7 +19,7 @@ class SFXCData:
     try:
       self.inputfile = open(corfilename, 'rb')
     except:
-      print >> sys.stderr, "Error : Could not open " + corfilename
+      print("Error : Could not open " + corfilename, file=sys.stderr)
       sys.exit(1)
     
     self._integration_byte_pos = []
@@ -160,12 +160,12 @@ class SFXCData:
       h = htype._make(struct.unpack('i32s2h5ib15s2i', buf[:84]))
     self.nchan = h.nchan
 
-    self.integration_time = timedelta(0, h.integr_time / 1000000, h.integr_time % 1000000)
+    self.integration_time = timedelta(0, h.integr_time // 1000000, h.integr_time % 1000000)
     self.start_time = datetime(h.start_year, 1, 1) + timedelta(h.start_day - 1, h.start_time, 0)
     # get stations and sources in a way that won't break when fields get to 
     # the header format
     if self.global_header_size >= 92:
-      splitted = buf[92:].split('\0')
+      splitted = buf[92:].decode().split('\0')
       self.exp_stations = splitted[:h.n_stations]
       self.exp_sources = splitted[h.n_stations:(h.n_stations + h.n_sources)]
     self.global_header = h
