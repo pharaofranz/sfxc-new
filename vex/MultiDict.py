@@ -1,42 +1,34 @@
-import UserDict
+from collections.abc import MutableMapping
 
-class MultiDict(UserDict.DictMixin):
+class MultiDict(MutableMapping):
 
     def __init__(self, *args, **kwds):
         self._items = []
         if len(args) > 1:
             msg = "__init__() takes at most 2 arguments (%d given)" \
                   % (len(args) + 1)
-            raise TypeError, msg
+            raise TypeError(msg)
         if args:
             if hasattr(args[0], 'items'):
-                items = args[0].items()
+                items = list(args[0].items())
             else:
                 items = list(args[0])
                 pass
             self.extend(items)
             pass
-        
-        self.extend(list(kwds.iteritems()))
+
+        self.extend(list(kwds.items()))
         pass
 
     def __len__(self):
         return len(self._items)
 
     def __getitem__(self, key):
-        if hasattr(key, "__iter__"):
-            d = MultiDict()
-            for k in key:
-                for i in self[k]:
-                    d[i] = self[k][i]
-                    continue
-                continue
-            return d
         for pair in self._items:
             if pair[0] == key:
                 return pair[1]
             continue
-        raise KeyError, repr(key)
+        raise KeyError(repr(key))
 
     def __setitem__(self, key, value):
         self._items.append((key, value))
@@ -49,14 +41,17 @@ class MultiDict(UserDict.DictMixin):
     def extend(self, seq):
         index = 0
         for pair in seq:
-            if len(seq) != 2:
+            if len(pair) != 2:
                 msg = "dictionary update sequence element #%d has" \
                       " length %d; 2 is required" % (index, len(pair))
-                raise ValueError, msg
+                raise ValueError(msg)
             self.append(pair[0], pair[1])
             index += 1
             continue
         pass
+
+    def insert(self, index, key, value):
+        self._items.insert(index, (key, value))
 
     def clear(self):
         self._items = []
@@ -65,7 +60,7 @@ class MultiDict(UserDict.DictMixin):
     def __str__(self):
         s = '{'
         for pair in self._items:
-            s += str(pair[0]) + ": '" + str(pair[1]) + "', "
+            s += str(pair[0]) + ": " + str(pair[1]) + ", "
             continue
         return s.strip(', ') + '}'
 
@@ -78,7 +73,7 @@ class MultiDict(UserDict.DictMixin):
                 pass
             continue
         if not found:
-            raise KeyError, repr(key)
+            raise KeyError(repr(key))
         pass
 
     def __contains__(self, key):
@@ -87,6 +82,13 @@ class MultiDict(UserDict.DictMixin):
                 return True
             continue
         return False
+
+    def update(self, other):
+        if isinstance(other, MultiDict):
+            self.extend(other._items)
+        else:
+            UserDict.DictMixin.update(self, other)
+
 
     has_key = __contains__
 

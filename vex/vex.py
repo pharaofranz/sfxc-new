@@ -91,7 +91,7 @@ def t_newline(t):
     return
 
 def t_error(t):
-    print "Illegal character '%s'" % t.value[0]
+    print("Illegal character '%s'" % t.value[0])
     t.lexer.skip(1)
     return
 
@@ -185,7 +185,12 @@ def p_value(t):
     elif len(t) == 2:
         t[0] = t[1]
     elif len(t) == 3:
-        t[0] = t[1]
+        try:
+            t[0] = t[1]
+            t[0].append("")
+        except:
+            t[0] = [t[1], ""]
+            pass
     else:
         try:
             t[0] = t[1]
@@ -208,10 +213,10 @@ def p_word(t):
 
 def p_error(t):
     if t:
-        raise SyntaxError, "at line %d, token %s" % (t.lineno, t.value)
-    raise SyntaxError, "unexpected end of file"
+        raise SyntaxError("at line %d, token %s" % (t.lineno, t.value))
+    raise SyntaxError("unexpected end of file")
 
-parser = yacc.yacc(debug=0)
+parser = yacc.yacc(debug=0, write_tables=0)
 
 def parse(s):
     return parser.parse(s, lexer=lexer)
@@ -224,4 +229,4 @@ def Vex(file):
 
 if __name__ == "__main__":
     import sys
-    print Vex(sys.argv[1])
+    print(Vex(sys.argv[1]))
