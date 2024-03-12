@@ -6,6 +6,7 @@
 #include <set>
 #include <cstring>
 #include <cctype>
+#include <complex>
 #include <math.h>
 
 #include <libgen.h>
@@ -213,9 +214,19 @@ initialise(const char *ctrl_file, const char *vex_file,
   if(ctrl["exit_on_empty_datastream"] == Json::Value())
     ctrl["exit_on_empty_datastream"] = true;
 
-  if (ctrl["output_buffer_size"] == Json::Value())
+  if (ctrl["output_buffer_size"] == Json::Value()) {
+    // The old default
     ctrl["output_buffer_size"] = 5000 * 250;
-
+  } else if (ctrl["output_buffer_size"].isString()) {
+    std::string buffer_size = ctrl["output_buffer_size"].asString();
+    transform(buffer_size.begin(), buffer_size.end(), buffer_size.begin(), ::tolower);
+    if (buffer_size == "auto")
+      ctrl["output_buffer_size"] = minimum_output_buffer_size();
+    else {
+      log_writer <<  "Error in ctrl file: output_buffer_size has illegal value\n";
+      return false;
+    }
+  }
   if (ctrl["start"].asString().compare("now") == 0) {
     char *now;
     time_t t;
@@ -2480,6 +2491,55 @@ Control_parameters::create_path(const std::string &path) const {
     return path;
   }
 }
+
+int
+Control_parameters::minimum_output_buffer_size() const {
+   // set the output stream
+  int nstations = number_stations();
+  int nstreams = (cross_polarize()) ? 2 * nstations : nstations;
+  int nBaselines = nstreams * (nstreams + 1) / 2;
+
+  int size_of_one_baseline = sizeof(std::complex<float>) * (number_channels() + 1);
+
+  int size_uvw = nstations*sizeof(Output_uvw_coordinates);
+  // when the cross_polarize flag is set then the correlator node receives 2 polarizations
+  int size_stats = nstreams * sizeof(Output_header_bitstatistics);
+  
+  Vex::Date job_start(get_start_time().date_string());
+  Vex::Date job_stop(get_stop_time().date_string());
+
+  int nbins = (pulsar_binning()) ? 2 : 1;
+  // Count the maximum number of sources / pulsar bins in the scans to be correlated   
+  for (int i = 0; i < number_scans(); i++) {
+    std::string scan_name = scan(i);
+    Vex::Date scan_start = vex.start_of_scan(scan_name);
+    Vex::Date scan_stop = vex.stop_of_scan(scan_name);
+    if ((scan_start < job_stop) && (scan_stop < job_start)) {
+      if (multi_phase_center()) {
+        int nsources = vex.n_sources(scan_name);
+        if (nsources > nbins)
+          nbins = nsources;
+      } else if (pulsar_binning()) {
+        for (Vex::Node::const_iterator sources = vex.get_root_node()["SCHED"][scan_name]->begin("source");
+           sources != vex.get_root_node()["SCHED"][scan_name]->end("source");
+           sources++) {
+          std::string source_name = sources->to_string();
+          for (Json::Value::const_iterator it = ctrl["pulsars"].begin();
+              it != ctrl["pulsars"].end(); 
+              it++) {
+            std::string psr_name = it.key().asString();
+            if (psr_name == source_name)
+             nbins = std::max(nbins, (*it)["nbins"].asInt() + 1);
+          }
+        }
+      }
+    }
+  }
+  int slice_size = sizeof(int32_t) + sizeof(Output_header_timeslice) + size_uvw + size_stats +
+                  nBaselines * ( size_of_one_baseline + sizeof(Output_header_baseline));
+  return nbins * slice_size;
+}
+
 
 bool
 Input_node_parameters::operator==(const Input_node_parameters &other) const {

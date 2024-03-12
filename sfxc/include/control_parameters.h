@@ -400,6 +400,9 @@ private:
 			const std::string &station,
 			Input_node_parameters &input_parameters) const;
 
+  // The minimum number of bytes required to hold an entire integration slice in the output node
+  int minimum_output_buffer_size() const;
+
   std::string ctrl_filename;
   std::string vex_filename;
   std::map<std::string, Time> reader_offsets; // Contains the formatter clock offsets for all input nodes
