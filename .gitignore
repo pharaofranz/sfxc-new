@@ -81,3 +81,9 @@ sfxc/utils/produce_html_plotpage
 sfxc/utils/vdif_print_headers                                                          
 sfxc/utils/vlba_print_headers                                                          
 vex/__pycache__/                                                                       
+sfxc/lib/vex_parser/vex_parser/lib/libvex_parser.a
+sfxc/lib/vex_parser/vex_parser/lib/libvex_parser32.a
+sfxc/lib/vex_parser/vex_parser/src/cpp_parser
+sfxc/lib/vex_parser/vex_parser/src/parser
+sfxc/utils/vdif_check_data
+
