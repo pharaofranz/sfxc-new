@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python3
 
 # Standard Python modules
 from datetime import datetime, timedelta
@@ -6,19 +6,19 @@ import json
 import os
 import optparse
 import re
+import select
 import socket
-import asyncsubprocess as subprocess
+import subprocess
 import struct
 import sys
 import signal
 import time
-import urlparse
+import urllib.parse as urlparse
 from threading import Thread
 
 # Qt and Qwt
-from PyQt4 import Qt, QtCore, QtGui
-import PyQt4.Qwt5 as Qwt
-from PyQt4.Qwt5.anynumpy import *
+from PyQt5 import Qt, QtCore, QtWidgets
+import PyQt5.Qwt as Qwt
 
 # MySQL
 import MySQLdb as db
@@ -40,9 +40,9 @@ def time2vex(secs):
     tupletime = time.gmtime(secs)
     return time.strftime("%Yy%jd%Hh%Mm%Ss", tupletime)
 
-class progressDialog(QtGui.QDialog):
+class progressDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
-        QtGui.QDialog.__init__(self, parent, QtCore.Qt.WindowStaysOnTopHint)
+        QtWidgets.QDialog.__init__(self, parent, QtCore.Qt.WindowStaysOnTopHint)
         self.ui = Ui_Dialog1()
         self.ui.setupUi(self)
 
@@ -249,8 +249,8 @@ class progressDialog(QtGui.QDialog):
                 pass
             pass
 
-        self.start = vex2time(self.json_input['start'])
-        self.stop = vex2time(self.json_input['stop'])
+        self.start = int(vex2time(self.json_input['start']))
+        self.stop = int(vex2time(self.json_input['stop']))
         self.subjob = self.json_input.get('subjob', -1)
         self.ui.progressBar.setRange(self.start, self.stop)
         self.ui.logEdit.setMaximumBlockCount(100000)
@@ -303,7 +303,7 @@ class progressDialog(QtGui.QDialog):
                 procs[station].wait()
                 if procs[station].returncode != 0:
                     msg = "Delay model couldn't be generated for " + station + "."
-                    QtGui.QMessageBox.warning(self, "Aborted", msg)
+                    QtWidgets.QMessageBox.warning(self, "Aborted", msg)
                     path = urlparse.urlparse(self.json_input['delay_directory']).path
                     delay_file = path + '/' +  exper + '_' + station + '.del'
                     os.remove(delay_file)
@@ -376,11 +376,13 @@ class progressDialog(QtGui.QDialog):
                 '--mca', 'oob', '^ud',
                 '--machinefile', machine_file, '--rankfile', rank_file,
                 '--np', str(ranks), sfxc, ctrl_file, vex_file]
-        print ' '.join(args)
-        self.proc = subprocess.Popen(args, stdout=subprocess.PIPE,
+        print(' '.join(args))
+        self.proc = subprocess.Popen(args, universal_newlines=True, bufsize=1,
+                                     stdout=subprocess.PIPE,
                                      stderr=subprocess.STDOUT)
         if not self.proc:
             return
+        os.set_blocking(self.proc.stdout.fileno(), False)
 
         # Update the map-on-the-wall.
         try:
@@ -397,7 +399,7 @@ class progressDialog(QtGui.QDialog):
         self.monitor_time = time.time()
         self.monitor_pos = 0
         self.t = QtCore.QTimer()
-        QtCore.QObject.connect(self.t, QtCore.SIGNAL("timeout()"), self.timeout)
+        self.t.timeout.connect(self.timeout)
         self.t.start(500)
         pass
 
@@ -449,7 +451,7 @@ class progressDialog(QtGui.QDialog):
         if self.cordata:
             self.cordata.read()
             if self.time < self.cordata.current_time:
-                self.time = self.cordata.current_time
+                self.time = int(self.cordata.current_time)
                 tupletime = time.gmtime(self.time)
                 strtime = time.strftime("%H:%M:%S", tupletime)
                 self.ui.timeEdit.setText(strtime)
@@ -465,13 +467,13 @@ class progressDialog(QtGui.QDialog):
                     pass
                 pass
             pass
-        output = self.proc.asyncread()
+        output = self.proc.stdout.readlines()
         if output:
             r1 = re.compile(r'Starting correlation')
             r2 = re.compile(r'Terminating nodes')
             r3 = re.compile(r'^Node #(\d+) fatal error.*Could not find header')
 
-            for line in output.splitlines():
+            for line in output:
                 m = r1.search(line)
                 if m:
                     if not self.cordata:
@@ -515,9 +517,9 @@ class progressDialog(QtGui.QDialog):
                         print >>sys.stderr, "Error: Disk Problem with %s" % (station)
                         pass
                     pass
+                self.ui.logEdit.appendPlainText(line.rstrip())
+                self.log_fp.write(line)
                 continue
-            self.ui.logEdit.appendPlainText(output.rstrip())
-            self.log_fp.write(output)
             pass
 
         # Check if SFXC process is frozen
@@ -533,7 +535,7 @@ class progressDialog(QtGui.QDialog):
                     terminate = True
                 self.monitor_pos = newpos
             if terminate:
-                print 'Watchdog timeout'
+                print('Watchdog timeout')
                 os.kill(self.proc.pid, signal.SIGTERM)
                 i = 0
                 while (i < 15) and (self.proc.poll() == None):
@@ -609,7 +611,7 @@ dbhost = options.dbhost
 os.environ['TZ'] = 'UTC'
 time.tzset()
 
-app = QtGui.QApplication(sys.argv)
+app = QtWidgets.QApplication(sys.argv)
 d = progressDialog()
 d.run(args[0], args[1], args[2], args[3], options)
 d.show()

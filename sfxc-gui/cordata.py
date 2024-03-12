@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python3
 
 # Standard Python modules
 from datetime import datetime, timedelta
@@ -10,7 +10,7 @@ import subprocess
 import struct
 import sys
 import time
-import urlparse
+from urllib.parse import urlparse
 
 # NumPy
 import numpy as np
@@ -19,7 +19,7 @@ import numpy as np
 from vex import Vex
 
 def vex2time(str):
-    tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss");
+    tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss")
     return time.mktime(tupletime)
 
 def time2vex(secs):
@@ -78,7 +78,7 @@ class CorrelatedData:
     def read(self):
         if self.fp == None:
             try:
-                fp = open(self.output_file, 'r')
+                fp = open(self.output_file, 'rb')
             except:
                 return
 
@@ -92,7 +92,7 @@ class CorrelatedData:
             self.fp = fp
 
             self.fp.read(h[0] - struct.calcsize(global_hdr))
-            exper = h[1].strip('\x00')
+            exper = h[1].decode('utf-8').strip('\0x00')
             hour = h[4] / 3600
             min = (h[4] % 3600) / 60
             sec = h[4] % 60
@@ -101,7 +101,7 @@ class CorrelatedData:
 
             self.number_channels = h[5]
             self.integration_time = h[6] * 1e-6
-            self.correlator_branch = h[10].replace('\x00', ' ')
+            self.correlator_branch = h[10].decode('utf-8').replace('\x00', ' ')
             self.correlator_version = h[8]
             pass
 
@@ -121,11 +121,11 @@ class CorrelatedData:
                     self.integration_slice = integration_slice
                     pass
 
-                for i in xrange(number_uvw_coordinates):
+                for i in range(number_uvw_coordinates):
                     h = struct.unpack(uvw_hdr, self.fp.read(struct.calcsize(uvw_hdr)))
                     continue
 
-                for i in xrange(number_statistics):
+                for i in range(number_statistics):
                     h = struct.unpack(stat_hdr, self.fp.read(struct.calcsize(stat_hdr)))
                     weight = 1.0 - (float(h[8]) / (h[4] + h[5] + h[6] + h[7] + h[8]))
                     station = self.stations[h[0]]
@@ -157,7 +157,7 @@ class CorrelatedData:
                         pass
                     continue
 
-                for i in xrange(number_baselines):
+                for i in range(number_baselines):
                     h = struct.unpack(baseline_hdr, self.fp.read(struct.calcsize(baseline_hdr)))
                     buf = self.fp.read((self.number_channels + 1) * 8)
                     if not len(buf) == (self.number_channels + 1) * 8:

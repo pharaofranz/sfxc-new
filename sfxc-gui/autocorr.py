@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python3
 
 # Standard Python modules
 from datetime import datetime, timedelta
@@ -10,12 +10,11 @@ import subprocess
 import struct
 import sys
 import time
-import urlparse
+import urllib.parse as urlparse
 
 # Qt and Qwt
-from PyQt4 import Qt, QtCore, QtGui
-import PyQt4.Qwt5 as Qwt
-from PyQt4.Qwt5.anynumpy import *
+from PyQt5 import Qt, QtWidgets
+import PyQt5.Qwt as Qwt
 
 # JIVE Python modules
 from vex import Vex
@@ -25,7 +24,7 @@ from cordata import CorrelatedData
 import numpy as np
 
 def vex2time(str):
-    tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss");
+    tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss")
     return time.mktime(tupletime)
 
 def time2vex(secs):
@@ -85,12 +84,11 @@ class AutoPlotCurve(Qwt.QwtPlotCurve):
     pass
 
 class AutoPlotLegend(Qwt.QwtLegend):
-    def sizeHint(self):
-        size = Qwt.QwtLegend.sizeHint(self)
-        numrows = min(self.contentsWidget().layout().numRows(), 4)
-        if numrows > 0:
-            return Qt.QSize(size.width(), numrows * size.height())
-        return size;
+    def updateWidget(self, label, data):
+        Qwt.QwtLegend.updateWidget(self, label, data)
+        curve = self.itemInfo(label)
+        if curve and curve.tip:
+            label.setToolTip(curve.tip)
 
     pass
 
@@ -114,6 +112,7 @@ class AutoPlot(Qwt.QwtPlot):
         Qwt.QwtPlot.__init__(self, *args)
 
         self.setCanvasBackground(Qt.Qt.white)
+        self.setMinimumHeight(80)
 
         self.x = []
         self.y = {}
@@ -134,13 +133,11 @@ class AutoPlot(Qwt.QwtPlot):
         self.centercurve = Qwt.QwtPlotCurve("XXX")
         x = [ number_channels / 2, number_channels / 2 ]
         y = [ -1, 2 ]
-        self.centercurve.setData(x, y)
+        self.centercurve.setSamples(x, y)
         self.centercurve.setPen(Qt.Qt.lightGray)
         self.centercurve.setItemAttribute(Qwt.QwtPlotItem.AutoScale, False)
         self.centercurve.attach(self)
 
-        self.connect(self, Qt.SIGNAL("legendChecked(QwtPlotItem*,bool)"),
-                     self.toggleCurve)
         self.parent = parent
         return
 
@@ -228,7 +225,7 @@ class AutoPlotWindow(Qt.QWidget):
         self.sample_rate = 1e12
         for scan in vex['SCHED']:
             mode = vex['SCHED'][scan]['mode']
-            for datastreams in vex['MODE'][mode].getall('DATASTREAMS'):
+            for datastreams in vex['MODE'][mode].getall('DATASTREAMS', []):
                 if setup_station in datastreams[1:]:
                     if 'thread' in vex['DATASTREAMS'][datastreams[0]]:
                         value = vex['DATASTREAMS'][datastreams[0]]['thread']
@@ -245,7 +242,7 @@ class AutoPlotWindow(Qt.QWidget):
                         pass
                     break
                 continue
-            for streams in vex['MODE'][mode].getall('BITSTREAMS'):
+            for streams in vex['MODE'][mode].getall('BITSTREAMS', []):
                 if setup_station in streams[1:]:
                     if 'stream_sample_rate' in vex['BITSTREAMS'][streams[0]]:
                         value = vex['BITSTREAMS'][streams[0]]['stream_sample_rate'].split()
@@ -261,7 +258,7 @@ class AutoPlotWindow(Qt.QWidget):
                         pass
                     break
                 continue
-            for tracks in vex['MODE'][mode].getall('TRACKS'):
+            for tracks in vex['MODE'][mode].getall('TRACKS', []):
                 if setup_station in tracks[1:]:
                     if 'sample_rate' in vex['TRACKS'][tracks[0]]:
                         value = vex['TRACKS'][tracks[0]]['sample_rate'].split()
@@ -277,7 +274,7 @@ class AutoPlotWindow(Qt.QWidget):
                         pass
                     break
                 continue
-            for freq in vex['MODE'][mode].getall('FREQ'):
+            for freq in vex['MODE'][mode].getall('FREQ', []):
                 if setup_station in freq[1:]:
                     if 'sample_rate' in vex['FREQ'][freq[0]]:
                         value = vex['FREQ'][freq[0]]['sample_rate'].split()
@@ -291,7 +288,7 @@ class AutoPlotWindow(Qt.QWidget):
                             self.sample_rate = sample_rate
                             pass
                         pass
-                    channels = vex['FREQ'][freq[0]].getall('chan_def')
+                    channels = vex['FREQ'][freq[0]].getall('chan_def', [])
                     for chan_def in channels:
                         value = chan_def[1].split()
                         frequency = float(value[0])
@@ -313,8 +310,7 @@ class AutoPlotWindow(Qt.QWidget):
 
         menubar = Qt.QMenuBar(self)
         menu = menubar.addMenu("&Integrations")
-        self.connect(menu, Qt.SIGNAL("triggered(QAction *)"),
-                     self.setIntegrations)
+        menu.triggered.connect(self.setIntegrations)
         grp = Qt.QActionGroup(menu)
         for history in [1, 2, 4, 8, 16, 32]:
             act = Qt.QAction(str(history), menu)
@@ -332,15 +328,14 @@ class AutoPlotWindow(Qt.QWidget):
         self.stations.sort()
 
         self.plots = []
-        self.layout = Qt.QGridLayout()
+        self.layout = Qt.QVBoxLayout()
         for station in stations:
             plot = AutoPlot(self, station, number_channels)
             plot.enableAxis(Qwt.QwtPlot.xBottom, False)
             self.layout.addWidget(plot)
-            self.layout.setRowStretch(self.layout.rowCount() - 1, 100)
             self.plots.append(plot)
             picker = AutoPlotPicker(plot.canvas())
-            picker.setSelectionFlags(Qwt.QwtPicker.PointSelection | Qwt.QwtPicker.DragSelection)
+            picker.setStateMachine(Qwt.QwtPickerDragPointMachine())
             picker.setRubberBandPen(Qt.QColor(Qt.Qt.red))
             picker.setRubberBand(Qwt.QwtPicker.VLineRubberBand)
             picker.setMousePattern(Qwt.QwtPicker.MouseSelect1, Qt.Qt.LeftButton)
@@ -349,13 +344,14 @@ class AutoPlotWindow(Qt.QWidget):
             picker.number_channels = number_channels
             continue
         legend = AutoPlotLegend()
-        legend.setItemMode(Qwt.QwtLegend.CheckableItem)
-        self.plots[-1].insertLegend(legend, Qwt.QwtPlot.ExternalLegend)
+        legend.setDefaultItemMode(Qwt.QwtLegendData.Checkable)
+        self.plots[-1].legendDataChanged.connect(legend.updateLegend)
+        legend.checked.connect(self.plots[-1].toggleCurve)
 
         self.box = Qt.QVBoxLayout(self)
         self.box.setMenuBar(menubar)
         self.box.addLayout(self.layout)
-        self.box.addWidget(self.plots[-1].legend())
+        self.box.addWidget(legend)
 
         if cordata:
             self.cordata = cordata
@@ -373,29 +369,6 @@ class AutoPlotWindow(Qt.QWidget):
         self.cordata.history = int(str(act.text()))
         self.cordata.correlations = {}
         return
-
-    def stretch(self):
-        self.plots[-1].enableAxis(Qwt.QwtPlot.xBottom, True)
-        self.plots[-1].centercurve.setItemAttribute(Qwt.QwtPlotItem.Legend, False)
-        height = self.plots[-1].height()
-        canvasHeight = self.plots[-1].plotLayout().canvasRect().height()
-        fixedHeight = height - canvasHeight
-        if fixedHeight > 0:
-            height = self.layout.contentsRect().height()
-            height -= (len(self.plots) - 1) * self.layout.verticalSpacing()
-            height /= len(self.plots)
-            if height > 0:
-                stretch = (height + fixedHeight) * 110 / height
-                self.layout.setRowStretch(self.layout.rowCount() - 1, stretch)
-                pass
-            pass
-        self.plots[-1].legend().updateGeometry()
-        return
-
-    def resizeEvent(self, e):
-        self.stretch()
-        Qt.QWidget.resizeEvent(self, e)
-        pass
 
     def replot(self):
         time = self.cordata.time
@@ -451,12 +424,12 @@ class AutoPlotWindow(Qt.QWidget):
                     pen.setWidth(1)
 
                     plot.curve[plot_idx] = AutoPlotCurve(tip, title)
-                    plot.curve[plot_idx].setData(range(self.cordata.number_channels),
+                    plot.curve[plot_idx].setSamples(range(self.cordata.number_channels),
                                             range(self.cordata.number_channels))
                     plot.curve[plot_idx].setPen(pen)
                     plot.curve[plot_idx].attach(plot)
                     if plot == self.plots[-1]:
-                        self.stretch()
+#                        self.stretch()
                         pass
 
                     # Sort curves by detaching them all and
@@ -474,7 +447,7 @@ class AutoPlotWindow(Qt.QWidget):
                 g = np.absolute(a) / self.integrations
                 s = max(s, np.median(g))
 
-                plot.curve[plot_idx].setData(range(self.cordata.number_channels), g)
+                plot.curve[plot_idx].setSamples(range(self.cordata.number_channels), g)
                 continue
             plot.setAxisScale(Qwt.QwtPlot.yLeft, 0, 3 * s)
             plot.replot()
@@ -510,7 +483,7 @@ if __name__ == '__main__':
     vex_file = args[0]
     ctrl_files = args[1:]
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
     vex = Vex(vex_file)
 

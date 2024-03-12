@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python3
 
 # Standard Python modules
 from datetime import datetime, timedelta
@@ -10,19 +10,18 @@ import subprocess
 import struct
 import sys
 import time
-import urlparse
+import urllib.parse as urlparse
 
 # Qt and Qwt
-from PyQt4 import Qt, QtCore, QtGui
-import PyQt4.Qwt5 as Qwt
-from PyQt4.Qwt5.anynumpy import *
+from PyQt5 import Qt, QtWidgets
+import PyQt5.Qwt as Qwt
 
 # JIVE Python modules
 from vex import Vex
 from cordata import CorrelatedData
 
 def vex2time(str):
-    tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss");
+    tupletime = time.strptime(str, "%Yy%jd%Hh%Mm%Ss")
     return time.mktime(tupletime)
 
 def time2vex(secs):
@@ -94,12 +93,13 @@ class WeightPlot(Qwt.QwtPlot):
         self.history = history
 
         self.setCanvasBackground(Qt.Qt.white)
+        self.setMinimumHeight(80)
 
         self.x = []
         self.y = {}
         self.station = station
 
-        scaleDraw = ScaleDraw(start);
+        scaleDraw = ScaleDraw(start)
         self.setAxisScaleDraw(Qwt.QwtPlot.xBottom, scaleDraw)
         self.scroll(0)
 
@@ -132,11 +132,9 @@ class WeightPlot(Qwt.QwtPlot):
             y.append(-1)
             y.append(2)
             continue
-        self.gapcurve.setData(x, y)
+        self.gapcurve.setSamples(x, y)
         self.gapcurve.attach(self)
 
-        self.connect(self, Qt.SIGNAL("legendChecked(QwtPlotItem*,bool)"),
-                     self.toggleCurve)
         self.parent = parent
         return
 
@@ -168,7 +166,7 @@ class WeightPlot(Qwt.QwtPlot):
                 pass
             rounded_time += timedelta(minutes=mins)
             continue
-        scaleDiv = Qwt.QwtScaleDiv(offset, offset + seconds, [],[], ticks);
+        scaleDiv = Qwt.QwtScaleDiv(offset, offset + seconds, [],[], ticks)
         self.setAxisScaleDiv(Qwt.QwtPlot.xBottom, scaleDiv)
         return
 
@@ -259,7 +257,7 @@ class WeightPlotWindow(Qt.QWidget):
             self.output_files.append(output_file)
 
             # If the start time is specified as "now" we'll need to
-            # look in the correlator output to fine the real start
+            # look in the correlator output to find the real start
             # time of the job.  If the correlator output file doesn't
             # exist yet, wait until one shows up.
             while json_input['start'] == "now":
@@ -306,7 +304,7 @@ class WeightPlotWindow(Qt.QWidget):
             # Loop over all the "station" parameters in the scan, figuring out
             # the real length of the scan.
             start_time = stop_time = 0
-            for transfer in vex['SCHED'][scan].getall('station'):
+            for transfer in vex['SCHED'][scan].getall('station', []):
                 station = transfer[0]
                 stop_time = max(stop_time, int(transfer[2].split()[0]))
                 continue
@@ -328,15 +326,15 @@ class WeightPlotWindow(Qt.QWidget):
             continue
         gaps.append((stop, stop))
 
-        for i in xrange(len(self.offsets)):
+        for i in range(len(self.offsets)):
             self.offsets[i] -= start
             continue
 
-        for i in xrange(len(gaps)):
+        for i in range(len(gaps)):
             gaps[i] = (gaps[i][0] - start, gaps[i][1] - start)
             continue
 
-        for i in xrange(len(scans)):
+        for i in range(len(scans)):
             scans[i] = (scans[i][0] - start, scans[i][1])
             continue
 
@@ -352,26 +350,26 @@ class WeightPlotWindow(Qt.QWidget):
         self.stations.sort()
 
         self.plot = {}
-        self.layout = Qt.QGridLayout()
+        self.layout = Qt.QVBoxLayout()
         for station in stations:
             self.plot[station] = WeightPlot(self, station, start, stop, gaps, scans, history)
             self.layout.addWidget(self.plot[station])
             lastplot = self.plot[station]
             lastplot.enableAxis(Qwt.QwtPlot.xBottom, False)
-            self.layout.setRowStretch(self.layout.rowCount() - 1, 100)
             self.last_station = station
             scans = []
             continue
         legend = Qwt.QwtLegend()
-        legend.setItemMode(Qwt.QwtLegend.CheckableItem)
-        lastplot.insertLegend(legend, Qwt.QwtPlot.ExternalLegend)
+        legend.setDefaultItemMode(Qwt.QwtLegendData.Checkable)
+        lastplot.legendDataChanged.connect(legend.updateLegend)
+        legend.checked.connect(lastplot.toggleCurve)
 
         self.scroll = Qt.QScrollBar(Qt.Qt.Horizontal)
         self.scroll.valueChanged.connect(self.scrollPlots)
 
         self.box = Qt.QVBoxLayout(self)
         self.box.addLayout(self.layout)
-        self.box.addWidget(lastplot.legend())
+        self.box.addWidget(legend)
         if not self.realtime and (stop - start) > self.history:
             self.box.addWidget(self.scroll)
 
@@ -395,34 +393,12 @@ class WeightPlotWindow(Qt.QWidget):
             continue
         pass
 
-    def stretch(self):
-        self.plot[self.last_station].enableAxis(Qwt.QwtPlot.xBottom, True)
-        self.plot[self.last_station].gapcurve.setItemAttribute(Qwt.QwtPlotItem.Legend, False)
-        height = self.plot[self.last_station].height()
-        canvasHeight = self.plot[self.last_station].plotLayout().canvasRect().height()
-        fixedHeight = height - canvasHeight
-        if fixedHeight > 0:
-            height = self.layout.contentsRect().height()
-            height -= (len(self.plot) - 1) * self.layout.verticalSpacing()
-            height /= len(self.plot)
-            if height > 0:
-                stretch = (height + fixedHeight) * 110 / height
-                self.layout.setRowStretch(self.layout.rowCount() - 1, stretch)
-                pass
-            pass
-        return
-
-    def resizeEvent(self, e):
-        self.stretch()
-        Qt.QWidget.resizeEvent(self, e)
-        pass
-
     def replot(self):
         time = self.cordata.time
         weights = self.cordata.weights
         now = max(self.cordata.current_time - self.start - 0.7 * self.history, 0)
         seconds = max(self.stop - self.start - 0.7 * self.history, 1)
-        self.scroll.setValue(100 * now / seconds)
+        self.scroll.setValue(int(100 * now // seconds))
         for station in weights:
             plot = self.plot[station]
             for idx in weights[station]:
@@ -439,13 +415,10 @@ class WeightPlotWindow(Qt.QWidget):
                     pen.setWidth(3)
 
                     plot.curve[idx] = Qwt.QwtPlotCurve(title)
-                    plot.curve[idx].setData(time[station], weights[station][idx])
+                    plot.curve[idx].setSamples(time[station], weights[station][idx])
                     plot.curve[idx].setPen(pen)
                     plot.curve[idx].setStyle(Qwt.QwtPlotCurve.Dots)
                     plot.curve[idx].attach(plot)
-                    if station == self.last_station:
-                        self.stretch()
-                        pass
 
                     # Sort curves by detaching them all and
                     # reattach them in the right order.
@@ -455,7 +428,7 @@ class WeightPlotWindow(Qt.QWidget):
                         continue
                     pass
 
-                plot.curve[idx].setData(time[station], weights[station][idx])
+                plot.curve[idx].setSamples(time[station], weights[station][idx])
                 continue
             plot.replot()
             continue
@@ -500,7 +473,7 @@ if __name__ == '__main__':
     vex_file = args[0]
     ctrl_files = args[1:]
 
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
 
     vex = Vex(vex_file)
 
