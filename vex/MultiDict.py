@@ -7,7 +7,7 @@ class MultiDict(UserDict.DictMixin):
         if len(args) > 1:
             msg = "__init__() takes at most 2 arguments (%d given)" \
                   % (len(args) + 1)
-            raise TypeError, msg
+            raise TypeError(msg)
         if args:
             if hasattr(args[0], 'items'):
                 items = args[0].items()
@@ -36,7 +36,7 @@ class MultiDict(UserDict.DictMixin):
             if pair[0] == key:
                 return pair[1]
             continue
-        raise KeyError, repr(key)
+        raise KeyError(repr(key))
 
     def __setitem__(self, key, value):
         self._items.append((key, value))
@@ -47,12 +47,14 @@ class MultiDict(UserDict.DictMixin):
         pass
 
     def extend(self, seq):
+        if isinstance(seq, MultiDict):
+            seq = seq._items
         index = 0
         for pair in seq:
             if len(pair) != 2:
                 msg = "dictionary update sequence element #%d has" \
                       " length %d; 2 is required" % (index, len(pair))
-                raise ValueError, msg
+                raise ValueError(msg)
             self.append(pair[0], pair[1])
             index += 1
             continue
@@ -78,7 +80,7 @@ class MultiDict(UserDict.DictMixin):
                 pass
             continue
         if not found:
-            raise KeyError, repr(key)
+            raise KeyError(repr(key))
         pass
 
     def __contains__(self, key):
