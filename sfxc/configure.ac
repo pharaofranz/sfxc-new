@@ -1,5 +1,5 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT(SFXC, 3.5.0)
+AC_INIT([SFXC],[3.5.0])
 AC_CONFIG_AUX_DIR(config)
 AM_CONFIG_HEADER(config.h)
 AC_CONFIG_MACRO_DIR(m4)
@@ -17,7 +17,7 @@ AC_PROG_F77
 AC_PROG_INSTALL
 AC_PROG_RANLIB
 
-AC_LANG_CPLUSPLUS
+AC_LANG([C++])
 
 AC_F77_LIBRARY_LDFLAGS
 
@@ -285,7 +285,7 @@ AM_CONDITIONAL(CALCTEN, [test "$WITH_CALC" = "yes"])
 AM_CONDITIONAL(SFXC_UTILS, [test "$WITH_SFXC_UTILS" = "yes"])
 AM_CONDITIONAL(SFXC, [test "$WITH_SFXC" = "yes"])
 
-AC_OUTPUT(Makefile
+AC_CONFIG_FILES([Makefile
           lib/Makefile
           lib/calc10/Makefile
           lib/calc10/include/Makefile
@@ -305,7 +305,8 @@ AC_OUTPUT(Makefile
           utils/delay/Makefile
           doc/Makefile
           doc/html/Makefile
-         )
+         ])
+AC_OUTPUT
 
 echo "=================== compilation summary =================="
 echo "Use mpi: $USE_MPI"
