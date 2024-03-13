@@ -54,7 +54,7 @@ class GapCurve(Qwt.QwtPlotCurve):
         Qwt.QwtPlotCurve.__init__(self, *args)
         pass
 
-    def drawFromTo(self, painter, xMap, yMap, start, stop):
+    def drawLines(self, painter, xMap, yMap, rect, start, stop):
         painter.setPen(Qt.QPen(Qt.Qt.lightGray))
         painter.setBrush(Qt.QBrush(Qt.Qt.FDiagPattern))
         if stop == -1:
@@ -70,13 +70,14 @@ class GapCurve(Qwt.QwtPlotCurve):
         start = max(start, 0)
         stop = max(stop, 0)
         for i in range(start, stop, 2):
-            px1 = xMap.transform(self.x(i))
-            py1 = yMap.transform(self.y(i))
-            px2 = xMap.transform(self.x(i+1))
-            py2 = yMap.transform(self.y(i+1))
+            px1 = xMap.transform(self.data().sample(i).x())
+            py1 = yMap.transform(self.data().sample(i).y())
+            px2 = xMap.transform(self.data().sample(i+1).x())
+            py2 = yMap.transform(self.data().sample(i+1).y())
             painter.drawRect(px1, py1, (px2 - px1), (py2 - py1))
             continue
         pass
+
     pass
 
 class WeightPlot(Qwt.QwtPlot):
