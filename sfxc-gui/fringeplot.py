@@ -585,7 +585,9 @@ class FringePlotWindow(Qt.QWidget):
             self.replot()
             if self.evlbi:
                 if not self.scp_proc:
-                    pixmap = Qt.QPixmap().grabWidget(self, 0, self.menubar.height())
+                    rect = QtCore.QRect(0, 0, self.width(), self.height())
+                    rect.adjust(0, self.menubar.height(), 0, 0)
+                    pixmap = self.grab(rect)
                     pixmap.save("fringe.png")
                     log = open("scp.log", 'a')
                     args = ["scp", "fringe.png", "services.jive.nl:/var/www/sfxc/"]
