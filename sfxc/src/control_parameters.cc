@@ -859,8 +859,8 @@ Control_parameters::get_pulsar_parameters(Pulsar_parameters &pars) const{
       it!=ctrl["pulsars"].end(); it++){
     std::string name= it.key().asString();
     Pulsar_parameters::Pulsar newPulsar;
-    if(name.size() > 10)
-      name.resize(10);
+    if(name.size() > 16)
+      name.resize(16);
     strcpy(&newPulsar.name[0], name.c_str());
     newPulsar.nbins = (*it)["nbins"].asInt();
     unsigned int zero=0, one=1; //needed to prevent compiler error

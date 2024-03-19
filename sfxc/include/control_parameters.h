@@ -89,7 +89,7 @@ public:
   };
 
   struct Pulsar{
-    char name[11];
+    char name[17];
     int32_t nbins;
     struct Interval{double start; double stop;} interval;
     std::vector<Polyco_params> polyco_params;

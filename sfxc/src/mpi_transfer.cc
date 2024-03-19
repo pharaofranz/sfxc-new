@@ -540,7 +540,7 @@ MPI_Transfer::send(Pulsar_parameters &pulsar_param, int rank) {
   size += sizeof(int32_t);
   std::map<std::string, Pulsar_parameters::Pulsar>::iterator it = pulsar_param.pulsars.begin();
   while(it!=pulsar_param.pulsars.end()){
-    size += 11*sizeof(char) + sizeof(int32_t)+2*sizeof(double);
+    size += 17*sizeof(char) + sizeof(int32_t)+2*sizeof(double);
     size += sizeof(int32_t); // because we send the number of polyco tables
     std::vector<Pulsar_parameters::Polyco_params>::iterator poly = it->second.polyco_params.begin();
     while(poly != it->second.polyco_params.end()){
@@ -558,7 +558,7 @@ MPI_Transfer::send(Pulsar_parameters &pulsar_param, int rank) {
   it = pulsar_param.pulsars.begin();
   while(it!=pulsar_param.pulsars.end()){
     Pulsar_parameters::Pulsar &cur = it->second;
-    MPI_Pack(&cur.name[0], 11, MPI_CHAR, message_buffer, size, &position, MPI_COMM_WORLD);
+    MPI_Pack(&cur.name[0], 17, MPI_CHAR, message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&cur.nbins, 1, MPI_INT32, message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&cur.interval.start, 1, MPI_DOUBLE, message_buffer, size, &position, MPI_COMM_WORLD);
     MPI_Pack(&cur.interval.stop, 1, MPI_DOUBLE, message_buffer, size, &position, MPI_COMM_WORLD);
@@ -612,7 +612,7 @@ MPI_Transfer::receive(MPI_Status &status, Pulsar_parameters &pulsar_param) {
 
   for(int i=0; i<npulsars; i++){
     Pulsar_parameters::Pulsar newPulsar;
-    MPI_Unpack(buffer, size, &position, &newPulsar.name[0], 11, MPI_CHAR, MPI_COMM_WORLD);
+    MPI_Unpack(buffer, size, &position, &newPulsar.name[0], 17, MPI_CHAR, MPI_COMM_WORLD);
     MPI_Unpack(buffer, size, &position, &newPulsar.nbins, 1, MPI_INT32, MPI_COMM_WORLD);
     MPI_Unpack(buffer, size, &position, &newPulsar.interval.start, 1, MPI_DOUBLE, MPI_COMM_WORLD);
     MPI_Unpack(buffer, size, &position, &newPulsar.interval.stop,  1, MPI_DOUBLE, MPI_COMM_WORLD);
