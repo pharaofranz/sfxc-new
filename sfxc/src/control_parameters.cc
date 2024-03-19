@@ -761,8 +761,8 @@ Control_parameters::read_pulsar_parameters(){
     std::string name= it.key().asString();
     std::cout << "Found pulsar " << name << "\n";
     Pulsar_parameters::Pulsar newPulsar;
-    if(name.size() > 10)
-      name.resize(10);
+    if(name.size() > 16)
+      name.resize(16);
     strcpy(&newPulsar.name[0], name.c_str());
     newPulsar.nbins = (*it)["nbins"].asInt();
     // If coherent dedispersion is not requested, default to incoherent dedispersion
@@ -2174,7 +2174,7 @@ get_correlation_parameters(const std::string &scan_name,
     }
   }
   // Get source information
-  strncpy(corr_param.source, scan_source(scan_name).c_str(), 11);
+  strncpy(corr_param.source, scan_source(scan_name).c_str(), 17);
 
   // Compute stream start / stop
   get_dedispersion_parameters(scan_name);

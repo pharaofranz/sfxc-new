@@ -95,7 +95,7 @@ public:
   };
 
   struct Pulsar{
-    char name[11];
+    char name[17];
     int32_t nbins;
     bool coherent_dedispersion;
     bool no_intra_channel_dedispersion;
