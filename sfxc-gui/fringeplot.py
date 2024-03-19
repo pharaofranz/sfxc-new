@@ -388,6 +388,7 @@ class FringePlotWindow(Qt.QWidget):
         self.legend.setDefaultItemMode(Qwt.QwtLegendData.Checkable)
         self.plots[-1].legendDataChanged.connect(self.legend.updateLegend)
         self.legend.checked.connect(self.plots[-1].toggleCurve)
+        self.plots[-1].enableAxis(Qwt.QwtPlot.xBottom, True)
 
         self.box = Qt.QVBoxLayout(self)
         self.box.setMenuBar(menubar)
