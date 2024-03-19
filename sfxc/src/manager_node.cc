@@ -372,7 +372,7 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
   correlation_parameters.stream_start = correlation_parameters.slice_start;
   correlation_parameters.integration_nr = integration_nr;
   correlation_parameters.slice_nr = output_slice_nr;
-  strncpy(correlation_parameters.source, control_parameters.scan_source(scan_name).c_str(), 11);
+  strncpy(correlation_parameters.source, control_parameters.scan_source(scan_name).c_str(), 17);
   correlation_parameters.pulsar_binning = control_parameters.pulsar_binning();
   if (control_parameters.multi_phase_center())
     correlation_parameters.n_phase_centers = n_sources_in_current_scan;
