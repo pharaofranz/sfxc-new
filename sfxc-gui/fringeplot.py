@@ -546,7 +546,7 @@ class FringePlotWindow(Qt.QWidget):
 
                     # Sort curves by detaching them all and
                     # reattach them in the right order.
-                    for i in plot.curve:
+                    for i in sorted(plot.curve.keys()):
                         plot.curve[i].detach()
                         plot.curve[i].attach(plot)
                         continue
