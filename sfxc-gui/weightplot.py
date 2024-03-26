@@ -13,7 +13,7 @@ import time
 import urllib.parse as urlparse
 
 # Qt and Qwt
-from PyQt5 import Qt, QtWidgets
+from PyQt5 import Qt, QtCore, QtWidgets
 import PyQt5.Qwt as Qwt
 
 # JIVE Python modules
@@ -40,13 +40,28 @@ class ScaleDraw(Qwt.QwtScaleDraw):
         Qwt.QwtScaleDraw.__init__(self, *args)
         pass
 
-    def label(self, val):
+    # Overriding the label() method no longer works in PyQwt6, so we
+    # have to draw our own tick mark labels.
+    def drawLabel(self, painter, val):
         tupletime = time.gmtime(self.start + val)
-        return Qwt.QwtText(time.strftime("%Hh%Mm", tupletime))
-    
-    def drawLabel(self, p, val):
-        Qwt.QwtScaleDraw.drawLabel(self, p, val)
+        lbl = Qwt.QwtText(time.strftime("%Hh%Mm", tupletime))
+        lbl.setRenderFlags(0)
+        lbl.setLayoutAttribute(Qwt.QwtText.MinimumLayout)
+        lbl.textSize(painter.font())
+        
+        pos = self.labelPosition(val)
+        labelSize = lbl.textSize(painter.font())
+
+        # Avoid clipping the text for the first tick mark
+        offset = 3 * labelSize.width() / 8;
+
+        transform = self.labelTransformation(pos, labelSize)
+        painter.save()
+        painter.setWorldTransform(transform, True)
+        lbl.draw(painter, QtCore.QRectF(QtCore.QPoint(offset, 0), labelSize))
+        painter.restore()
         pass
+
     pass
 
 class GapCurve(Qwt.QwtPlotCurve):
@@ -364,6 +379,7 @@ class WeightPlotWindow(Qt.QWidget):
         legend.setDefaultItemMode(Qwt.QwtLegendData.Checkable)
         lastplot.legendDataChanged.connect(legend.updateLegend)
         legend.checked.connect(lastplot.toggleCurve)
+        lastplot.enableAxis(Qwt.QwtPlot.xBottom, True)
 
         self.scroll = Qt.QScrollBar(Qt.Qt.Horizontal)
         self.scroll.valueChanged.connect(self.scrollPlots)
