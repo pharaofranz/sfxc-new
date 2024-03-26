@@ -21,9 +21,10 @@ def parse_global_header(infile, doprint):
     global_header = struct.unpack('i32s2h5ib15s2i',gheader_buf[:84])
   else:
     global_header = struct.unpack('i32s2h5ib15s2i4h',gheader_buf[:92])
-    splitted = gheader_buf[92:].split('\0')
     nstations = global_header[13]
+    stations_offset = global_header[14]
     nsources = global_header[15]
+    splitted = gheader_buf[stations_offset:].split('\0')
     stations = splitted[:nstations]
     sources = splitted[nstations:(nstations+nsources)]
 
