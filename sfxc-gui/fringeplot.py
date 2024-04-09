@@ -591,7 +591,7 @@ class FringePlotWindow(Qt.QWidget):
                     pixmap = self.grab(rect)
                     pixmap.save("fringe.png")
                     log = open("scp.log", 'a')
-                    args = ["scp", "fringe.png", "services.jive.nl:/var/www/sfxc/"]
+                    args = ["scp", "fringe.png", "assistant.jive.nl:/var/www/sfxc/"]
                     self.scp_proc = subprocess.Popen(args, stdout=log, stderr=log)
                 else:
                     self.scp_proc.poll()
