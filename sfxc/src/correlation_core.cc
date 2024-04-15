@@ -460,10 +460,10 @@ void Correlation_core::integration_write(std::vector<Complex_buffer> &integratio
       SFXC_ASSERT(n_flagged[i].first >= 0);
       valid_samples = std::max(total_samples - levels[4] - n_flagged[i].first, (int64_t)0);
     }
-    hbaseline.weight = round(binweight * hbaseline.weight);
     hbaseline.station_nr1 = station_number(baseline.first);
     hbaseline.station_nr2 = station_number(baseline.second);
     hbaseline.weight = valid_samples >> sample_shift;
+    hbaseline.weight = round(binweight * hbaseline.weight);
 
     // Polarisation (RCP: 0, LCP: 1)
     hbaseline.polarisation1 = (correlation_parameters.station_streams[baseline.first].polarisation == 'R') ? 0 : 1;
