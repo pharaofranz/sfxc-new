@@ -89,7 +89,7 @@ struct Output_header_global {
   static const int LEFT_RIGHT_POLARISATION_WITH_CROSSES=3;
 
   int32_t output_format_version;  // Version number of the output format
-  int32_t correlator_version;     // Svn revision of the correlator producing the output file
+  int32_t svn_version;            // Svn revision of the correlator producing the output file
 
   int8_t polarisation_type; // L | R | L+R | L+R with crosses
   char correlator_branch[15];
@@ -99,6 +99,8 @@ struct Output_header_global {
   int16_t stations_offset;
   int16_t number_sources;
   int16_t sources_offset;
+
+  char correlator_version[64];
 };
 
 struct Output_header_timeslice {
@@ -172,11 +174,13 @@ struct Output_header_phasecal {
   char experiment[32];		// Name of the experiment
 
   uint32_t output_format_version;	// Version number of the output format
-  uint32_t correlator_version;		// SVN revision of the correlator
+  uint32_t svn_version;			// SVN revision of the correlator
 
   char correlator_branch[15];
   int32_t job_nr;
   int32_t subjob_nr;
+
+  char correlator_version[64];
 };
 
 struct Output_header_tsys {
@@ -184,11 +188,13 @@ struct Output_header_tsys {
   char experiment[32];		// Name of the experiment
 
   uint32_t output_format_version;	// Version number of the output format
-  uint32_t correlator_version;		// SVN revision of the correlator
+  uint32_t svn_version;			// SVN revision of the correlator
 
   char correlator_branch[15];
   int32_t job_nr;
   int32_t subjob_nr;
+
+  char correlator_version[64];
 };
 
 std::ostream &

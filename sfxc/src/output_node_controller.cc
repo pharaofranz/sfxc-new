@@ -46,12 +46,15 @@ Output_node_controller::process_event(MPI_Status &status) {
 	     sizeof(phasecal_header.experiment));
       phasecal_header.output_format_version =
 	global_header->output_format_version;
-      phasecal_header.correlator_version = global_header->correlator_version;
+      phasecal_header.svn_version = global_header->svn_version;
       memcpy(&phasecal_header.correlator_branch,
 	     global_header->correlator_branch,
 	     sizeof(phasecal_header.correlator_branch));
       phasecal_header.job_nr = global_header->job_nr;
       phasecal_header.subjob_nr = global_header->subjob_nr;
+      memcpy(&phasecal_header.correlator_version,
+	     global_header->correlator_version,
+	     sizeof(phasecal_header.correlator_version));
       phasecal_file.write((char *)&phasecal_header, sizeof(phasecal_header));
 
       if (tsys_file.is_open()) {
@@ -61,12 +64,15 @@ Output_node_controller::process_event(MPI_Status &status) {
 	       sizeof(tsys_header.experiment));
 	tsys_header.output_format_version =
 	  global_header->output_format_version;
-	tsys_header.correlator_version = global_header->correlator_version;
+	tsys_header.svn_version = global_header->svn_version;
 	memcpy(&tsys_header.correlator_branch,
 	       global_header->correlator_branch,
 	       sizeof(tsys_header.correlator_branch));
 	tsys_header.job_nr = global_header->job_nr;
 	tsys_header.subjob_nr = global_header->subjob_nr;
+	memcpy(&tsys_header.correlator_version,
+	       global_header->correlator_version,
+	       sizeof(tsys_header.correlator_version));
 	tsys_file.write((char *)&tsys_header, sizeof(tsys_header));
       }
 

@@ -372,7 +372,7 @@ void Manager_node::start_next_timeslice_on_node(int corr_node_nr) {
   correlation_parameters.stream_start = correlation_parameters.slice_start;
   correlation_parameters.integration_nr = integration_nr;
   correlation_parameters.slice_nr = output_slice_nr;
-  strncpy(correlation_parameters.source, control_parameters.scan_source(scan_name).c_str(), 17);
+  strncpy(correlation_parameters.source, control_parameters.scan_source(scan_name).c_str(), 11);
   correlation_parameters.pulsar_binning = control_parameters.pulsar_binning();
   if (control_parameters.multi_phase_center())
     correlation_parameters.n_phase_centers = n_sources_in_current_scan;
@@ -777,7 +777,9 @@ void Manager_node::send_global_header(){
   const char *svn_version = SVN_VERSION;
   if (strchr(svn_version, ':'))
     svn_version = strchr(svn_version, ':') + 1;
-  output_header->correlator_version = atoi(svn_version);
+  output_header->svn_version = atoi(svn_version);
+  strncpy(output_header->correlator_version, SVN_VERSION,
+	  sizeof(output_header->correlator_version) - 1);
 
   output_header->polarisation_type =
     control_parameters.polarisation_type_for_global_output_header(get_current_mode());
