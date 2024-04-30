@@ -165,7 +165,8 @@ class SFXCData:
     # get stations and sources in a way that won't break when fields get to 
     # the header format
     if self.global_header_size >= 92:
-      splitted = buf[92:].split('\0')
-      self.exp_stations = splitted[:h.n_stations]
-      self.exp_sources = splitted[h.n_stations:(h.n_stations + h.n_sources)]
+      stations = buf[h.stations_offset:h.sources_offset].split('\0')
+      sources = buf[h.sources_offset:].split('\0')
+      self.exp_stations = stations[:h.n_stations]
+      self.exp_sources = sources[:h.n_sources]
     self.global_header = h
