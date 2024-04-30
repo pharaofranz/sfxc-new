@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import re
 import sys
 import struct
 import argparse
@@ -21,6 +22,7 @@ NUMBER_THREADS = 8
 def write_html(vexfile, ctrl, scan, exper, global_header, integr, weights, stats, tstart, ap):
   stations = sorted(set([x[0] for x in integr.keys()]))
   baselines = sorted(filter(lambda x:x[0] != x[1], integr.keys()))
+  autos = sorted(filter(lambda x:x[0] == x[1], integr.keys()))
   setup_station = ctrl["setup_station"] if "setup_station" in ctrl else ctrl["stations"][0]
   exper_name = global_header.exper.rstrip('\0')
 
@@ -82,7 +84,7 @@ def write_html(vexfile, ctrl, scan, exper, global_header, integr, weights, stats
     return c
 
   channels_in_data = set()
-  for bl in baselines:
+  for bl in baselines + autos:
     for ch in integr[bl].keys():
       channels_in_data.add(ch)
   channels_in_data = sorted(channels_in_data, cmp=srt_chan)
@@ -216,6 +218,7 @@ def generate_plots(integr, weights, channels, outdir, ap, integr_time):
   for bl in integr:
     for ch in integr[bl]:
       key = ch[:3]
+      print 'key = "{}", channels = {}'.format(key, channels)
       channel = channels[key]
       job = {'bl': bl, 'freqnr': ch.freqnr, "sb": ch.sideband}
       job["vis"] = integr[bl][ch]
@@ -341,6 +344,12 @@ def plot_thread(job):
     p.plot(t, lags)
   return plot
 
+def vextime(tstring):
+  year, doy, hour, minute, second = [int(x) for x in re.split('y|d|h|m|s', tstring)[:-1]]
+  nsec = 60 * (60 * hour + minute) + second
+  t0 = datetime(year, 1, 1)
+  return t0 + timedelta(days=doy-1, seconds=nsec)
+
 def parse_args():
   parser = argparse.ArgumentParser(description='Create diagnostic HTML plotpage from SFXC output')
   parser.add_argument("vexfile", help='vex file')
@@ -350,6 +359,25 @@ def parse_args():
   ctrl = json.load(open(args.ctrlfile, 'r'))
   return vex, args.vexfile, ctrl
 
+def get_source_list(ctrl, vex):
+    integr_start = vextime(ctrl['start'])
+    integr_stop = vextime(ctrl['stop'])
+    sources = []
+    for scanname, scan in vex['SCHED'].items():
+        tstart = vextime(scan['start'])
+        maxsec = 0
+        for station in scan.getall('station'):
+            sec = int(station[2].split()[0])
+            maxsec = max(maxsec, sec)
+        tend = tstart + timedelta(seconds=sec)
+        if (((integr_start >= tstart) and (integr_start < tend)) or
+            ((integr_stop > tstart) and (integr_stop <= tend))):
+             # python2 unfortunately doesn't have an ordered set, so we use a list
+             for src in scan.getall('source'):
+               if src not in sources:
+                 sources.append(src)
+    return sources
+
 #########
 ########################## MAIN #################################3
 ########
@@ -358,7 +386,18 @@ if __name__ == "__main__":
   exper = experiment(vex)
   out_tuple = urlparse(ctrl['output_file'])
   output_file = out_tuple.netloc + out_tuple.path
-  data = SFXCData(output_file)
+  # Check if data is old format, this doesn't get a list of stations and sources in global header
+  with open(output_file, 'rb') as f:
+    gheader_size_buf = f.read(4)
+    global_header_size = struct.unpack('i', gheader_size_buf)[0]
+  
+  if global_header_size >= 92:
+    data = SFXCData(output_file)
+    print data.global_header
+  else:
+    stations = sorted([st for st in vex['STATION']])
+    sources = get_source_list(ctrl, vex)
+    data = SFXCData(output_file, stations, sources)
   nchan = data.nchan
 
   # Dummy scan for first iteration
