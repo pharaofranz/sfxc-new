@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 from pylab import *
 from scipy.optimize import minimize
 import numpy.polynomial as polynomial
@@ -55,7 +56,7 @@ def read_integrations(inputfile, data, int_read, param, scan_param, n_integratio
   nsubint = scan_param['nsubint']
   nchan = param.nchan
 
-  n_baseline = n_stations*(n_stations-1)/2
+  n_baseline = n_stations * (n_stations - 1) // 2
   #print stations_in_job
   for i in range(n_integrations):
     #print `i`+'/'+`n_integrations`
@@ -89,7 +90,7 @@ def read_integrations(inputfile, data, int_read, param, scan_param, n_integratio
           freq = bheader[3] >> 3
           #print 'pol = ' + `pol` + ', sb = ' + `sb` + ', freq = ' + `freq`
           chan = channels.index([freq, sb, pol])
-          size_str = `2*nchan+2`+'f'
+          size_str = repr(2*nchan+2)+'f'
           #pdb.set_trace()
           values = array(struct.unpack(size_str, baseline_buffer[index:index + baseline_data_size]), dtype='f8')
           station = station1 if station2 == ref_station else station2
@@ -110,9 +111,9 @@ def lag_offsets(data, n_station, delays, rates):
       rl = abs(lag)
       max_idx = rl.argmax()
       idx = max_idx % rl.shape[1]
-      idy = max_idx / rl.shape[1]
-      x = idx if idx < rl.shape[1]/2 else idx - rl.shape[1]
-      y = idy if idy < rl.shape[0]/2 else idy - rl.shape[0]
+      idy = max_idx // rl.shape[1]
+      x = idx if idx < rl.shape[1]//2 else idx - rl.shape[1]
+      y = idy if idy < rl.shape[0]//2 else idy - rl.shape[0]
       delays[chan,station] = x
       rates[chan,station] = y
 
@@ -120,7 +121,7 @@ def apply_model(data, station1, station2, delays, rates, param, scan_param):
   channels = scan_param['channels']
   vex_freqs = param.freqs
   n_station = len(scan_param['stations'])
-  n_baseline = n_station * (n_station-1) / 2
+  n_baseline = n_station * (n_station-1) // 2
 
   N = data.shape[2] - 1
   T = data.shape[1]
@@ -143,8 +144,8 @@ def apply_model(data, station1, station2, delays, rates, param, scan_param):
 # FIXME: Create single cost function for delay and rate
 def cost_function_delay(delay, vis):
     N = (vis.size - 1) * 2
-    v = exp(-2j * pi * delay * arange(N/2 + 1) / N) * vis
-    vsum = v[N/10:9*N/10].sum()
+    v = exp(-2j * pi * delay * arange(N//2 + 1) / N) * vis
+    vsum = v[N//10:9*N//10].sum()
     return 1. / (abs(vsum) + 1e-8)
 
 def cost_function_rate(rate, vis):
@@ -157,8 +158,8 @@ def refine_offsets(data, station, delays, rates):
   nchan = data.shape[0]
   nfreq = data.shape[2]^1
   # Only use the inner 80% of the band
-  fmin = nfreq / 10
-  fmax = nfreq+1 - nfreq/10
+  fmin = nfreq // 10
+  fmax = nfreq+1 - nfreq//10
   f = arange(fmin, fmax) * pi / nfreq
   #pdb.set_trace()
   for chan in range(nchan):
@@ -166,7 +167,7 @@ def refine_offsets(data, station, delays, rates):
     fringe = irfft2(data[chan, :, :])
     max_idx = abs(fringe).argmax()
     idx = max_idx % fringe.shape[1]
-    idy = max_idx / fringe.shape[1]
+    idy = max_idx // fringe.shape[1]
     vis = rfft(fringe[idy,:])
     result_delay = minimize(cost_function_delay, 0., args=(vis,), bounds=[(-2, 2)], method='L-BFGS-B')
     delay = -result_delay.x[0]
@@ -224,7 +225,7 @@ def get_options():
             setup_station = ctrl["stations"][0]
       # TODO : Add file extensions for pulsar binning / multiple phase center
       if ctrl["output_file"][:7] != 'file://':
-        raise StandardError('Correlator output_file should start with file://')
+        raise Exception('Correlator output_file should start with file://')
       corfile = ctrl["output_file"][7:]
       try:
         if ctrl["pulsar_binning"]:
@@ -232,8 +233,8 @@ def get_options():
       except KeyError:
         # No pulsar_binning keyword in control file
         pass
-    except StandardError, err:
-      print >> sys.stderr, "Error loading control file : " + str(err)
+    except Exception as err:
+      print("Error loading control file : " + str(err), file=sys.stderr)
       sys.exit(1)
   else:
     corfile = options.corfile
@@ -242,13 +243,13 @@ def get_options():
 
   try:
     vex = Vex.parse(open(vex_name, "r").read())
-  except StandardError, err:
-    print >> sys.stderr, "Error loading vex file : " + str(err)
+  except Exception as err:
+    print("Error loading vex file : " + str(err), file=sys.stderr)
     sys.exit(1)
   try:
     inputfile = open(corfile, 'rb')
   except:
-    print >> sys.stderr, "Error : Could not open " + corfile
+    print("Error : Could not open " + corfile, file=sys.stderr)
     sys.exit(1)
   if options.timeout > 0:
     # We are running concurrently with a correlator job
@@ -274,22 +275,22 @@ def write_clocks(vex, param, scan_param, delays, rates, snr, ref_station, begin_
   weights[:,ref_station] = 1
   stations = [vex_stations[i] for i in scan_param['stations']]
   channels = [param.channel_names[param.vex_channels.index(c)] for c in scan_param['channels']]
-  print '{'
-  print '\"stations\" : [',
+  print('{')
+  print('\"stations\" : [', end=' ')
   for s in range(n_stations-1):
-    print '\"'+stations[s]+'\", ',
-  print '\"'+stations[n_stations-1]+'\"],'
-  print '\"channels\" : [',
+    print('\"'+stations[s]+'\", ', end=' ')
+  print('\"'+stations[n_stations-1]+'\"],')
+  print('\"channels\" : [', end=' ')
   for c in range(n_channels-1):
-    print '\"'+channels[c]+'\", ',
-  print '\"'+channels[n_channels-1]+'\"],'
-  tmid = begin_time + timedelta(seconds = param.integration_time*n_integrations/2)
+    print('\"'+channels[c]+'\", ', end=' ')
+  print('\"'+channels[n_channels-1]+'\"],')
+  tmid = begin_time + timedelta(seconds = param.integration_time*n_integrations//2)
   tmid_tuple = tmid.utctimetuple()
   tmid_string = '%dy%dd%dh%dm%ds' %(tmid_tuple[0], tmid_tuple[7], tmid_tuple[3], tmid_tuple[4], tmid_tuple[5])
-  print '\"epoch\" : \"'+tmid_string+'\",'
-  print '\"clocks\" : {'
+  print('\"epoch\" : \"'+tmid_string+'\",')
+  print('\"clocks\" : {')
   for s in range(n_stations):
-    print '    \"' + stations[s] +'\" : {'
+    print('    \"' + stations[s] +'\" : {')
     for c in range(n_channels):
       base_freq = param.freqs[scan_param['channels'][c][0]]
       sb =  -1 if scan_param['channels'][c][1] == 0 else 1
@@ -298,15 +299,15 @@ def write_clocks(vex, param, scan_param, delays, rates, snr, ref_station, begin_
       snr_tot = snr[c,s]
       weight = weights[c,s]
       if (c < n_channels - 1):
-        print '        \"' + channels[c] + '\" : [' + `delay` + ', ' + `rate` + ', ' + `snr_tot` + ', ' + `weight` + '],'
+        print('        \"' + channels[c] + '\" : [' + repr(delay) + ', ' + repr(rate) + ', ' + repr(snr_tot) + ', ' + repr(weight) + '],')
       else:
-        print '        \"' + channels[c] + '\" : [' + `delay` + ', ' + `rate` + ', ' + `snr_tot` + ', ' + `weight` + ']'
+        print('        \"' + channels[c] + '\" : [' + repr(delay) + ', ' + repr(rate) + ', ' + repr(snr_tot) + ', ' + repr(weight) + ']')
     if(s < n_stations-1):
-      print '    },'
+      print('    },')
     else:
-      print '    }'
-      print '}'
-  print '}'
+      print('    }')
+      print('}')
+  print('}')
 
 def clock_search(data, delays, rates, snr, param, options, scan_param, refstation):
   n_stations = len(scan_param['stations'])
@@ -374,7 +375,7 @@ def get_parameters(vex, ctrl, corfile, scan_param, begin_time, end_time, timeout
   else:
     corfile.seek(0,2)
     pos = corfile.tell()
-    nslice = min((pos - start_fpos + 1)/scan_param['slice_size'],
+    nslice = min((pos - start_fpos + 1)//scan_param['slice_size'],
                  int(scan_duration / param.integration_time))
   return start_fpos, start_slice, nslice
 
@@ -404,7 +405,7 @@ else:
 # Go to current scan
 scan_param = goto_scan(scan, corfile, param, timeout)
 if scan_param == None:
-  print >> sys.stderr, "Error : Premature end of correlation file"
+  print("Error : Premature end of correlation file", file=sys.stderr)
   exit(1)
 
 end_time = vex_time.get_time(options.end_time) if options.end_time != None else None
@@ -419,12 +420,12 @@ vex_stations.sort()
 try:
   ref_station_nr = vex_stations.index(ref_station)
 except:
-  print >> sys.stderr, 'Error : reference station ' + ref_station + ' is not found in vex file'
+  print('Error : reference station ' + ref_station + ' is not found in vex file', file=sys.stderr)
   sys.exit(1)
 try:
   ref_index = stations.index(ref_station_nr)
 except:
-  print >> sys.stderr, 'Error : reference station ' + ref_station + ' is not found in the correlator output file'
+  print('Error : reference station ' + ref_station + ' is not found in the correlator output file', file=sys.stderr)
   sys.exit(1)
 
 n_channels = len(channels)
@@ -436,7 +437,7 @@ snr = zeros([n_channels, n_stations])
 
 # Skip to first integration
 if not goto_integration(corfile, start_fpos, timeout):
-  print >> sys.stderr, 'Error : Data ended prematurely'
+  print('Error : Data ended prematurely', file=sys.stderr)
   sys.exit(1)
 
 # Register signal handler, in case the run is aborted
@@ -449,10 +450,10 @@ try:
 except EndOfData:
   # data file ended prematurely
   if  int_read[0] < 2:
-    print >> sys.stderr, 'Error : Data ended prematurely'
+    print('Error : Data ended prematurely', file=sys.stderr)
     sys.exit(1)
   else:
-    print >> sys.stderr, "Warning : data ended before the requested time. Proceeding with ", int_read[0], " datapoints."
+    print("Warning : data ended before the requested time. Proceeding with ", int_read[0], " datapoints.", file=sys.stderr)
   n_integrations = int_read[0]
 
 # compute delays and rates

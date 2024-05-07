@@ -1,13 +1,11 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import sys, datetime, pdb
 import vex as Vex
 import vex_time
 from optparse import OptionParser
 
-if sys.version_info > (2, 5):
-  import json
-else:
-  import simplejson as json
+import json
 
 def parse_clock_early(clock_early):
   line = clock_early.partition('=')[2].partition(':')
@@ -45,22 +43,22 @@ ctrl_name = args[2]
 
 try:
   ctrl = json.load(open(ctrl_name, "r"))
-except StandardError, err:
-  print "Error loading clock offsets from : " + str(err)
+except Exception as err:
+  print("Error loading clock offsets from : " + str(err))
   sys.exit(1);
 
 try:
   vex_in = open(vex_in_name, "r")
   vex = Vex.parse(vex_in.read())
   vex_in.seek(0)
-except StandardError, err:
-  print "Error loading input vexfile : " + str(err)
+except Exception as err:
+  print("Error loading input vexfile : " + str(err))
   sys.exit(1);
 
 try:
   vex_out = open(vex_out_name, "w")
 except:
-  print "Unable to open output vex file : " + str(err)
+  print("Unable to open output vex file : " + str(err))
   sys.exit(1);
 
 clock_keys = []

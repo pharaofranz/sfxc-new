@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import sys, struct
 from datetime import datetime, timedelta
 import vex_time
@@ -12,7 +13,7 @@ class parameters:
     try:
       self.inputfile = open(corfilename, 'rb')
     except:
-      print >> sys.stderr, "Error : Could not open " + corfilename
+      print("Error : Could not open " + corfilename, file=sys.stderr)
       sys.exit(1)
     
     gheader_size_buf = read_data(self.inputfile, 4, timeout)
@@ -21,7 +22,7 @@ class parameters:
     gheader_buf = read_data(self.inputfile, self.global_header_size, timeout)
     global_header = struct.unpack('i32s2h5i4c',gheader_buf[:64])
     self.nchan = global_header[5]
-    self.integration_time = global_header[6]/1000000.
+    self.integration_time = global_header[6]//1000000.
     first_day_of_year = datetime(global_header[2], 1, 1)
     self.starttime = first_day_of_year + timedelta(days=global_header[3]-1, seconds=global_header[4])
     scan = self.get_scan_name(self.starttime)
@@ -59,7 +60,7 @@ class parameters:
       if setup_station in block:
         ch_mode = block[0]
     if ch_mode == "":
-      print >> sys.stderr, "Error : Could not find FREQ block for setup station (" + setup_station + ") in mode " + mode
+      print("Error : Could not find FREQ block for setup station (" + setup_station + ") in mode " + mode, file=sys.stderr)
       sys.exit(1)
     for bmode in  vex['MODE'][mode].getall('BBC'):
       if setup_station in bmode:
@@ -100,7 +101,7 @@ class parameters:
         if station in line[1:]:
           return sec, line[0]
 
-    print >> sys.stderr, "Error: Could not find data format for station (" + station + ") in mode " + mode
+    print("Error: Could not find data format for station (" + station + ") in mode " + mode, file=sys.stderr)
     sys.exit(0)
 
   def get_sample_rate(self, mode):
@@ -129,7 +130,7 @@ class parameters:
         if setup_station in block:
           ch_mode = block[0]
       if ch_mode == "":
-        print >> sys.stderr, "Error : Could not find FREQ block for setup station (" + setup_station + ") in mode " + mode
+        print("Error : Could not find FREQ block for setup station (" + setup_station + ") in mode " + mode, file=sys.stderr)
         sys.exit(1)
       self.sample_rate = float(vex['FREQ'][ch_mode]['sample_rate'].partition('Ms')[0])
 
