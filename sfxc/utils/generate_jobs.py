@@ -1,15 +1,11 @@
 #! /usr/bin/python
+from __future__ import print_function
 
 # Standard Python modules.
 import os, sys, time
 import optparse, subprocess
 
-# The json module is new in Python 2.6; fall back on simplejson if it
-# isn't available.
-try:
-    import json
-except:
-    import simplejson as json
+import json
 
 # JIVE Python modules.
 from vex import Vex
@@ -43,7 +39,7 @@ parser.add_option("-C", "--cross-polarize", dest="cross_polarize", default=False
 parser.add_option("-s", "--stations", dest="stations", type="string",
                   help="Stations to correlate", metavar="LIST")
 parser.add_option("-n", "--max-scans", dest="max_scans",
-                  default=sys.maxint, type="int",
+                  default=sys.maxsize, type="int",
                   help="Maximum number of scans per job", metavar="N")
 parser.add_option("-t", "--template", dest="template", type="string",
                   help="Control file template", metavar="FILE")
@@ -79,7 +75,7 @@ if options.scans:
     if j[2] == '':
       options.scans.append(int(i))
     else:
-      options.scans += range(int(j[0]), int(j[2])+1)
+      options.scans += list(range(int(j[0]), int(j[2])+1))
 
 if len(args) != 1:
     parser.error("incorrect number of arguments")
@@ -112,7 +108,8 @@ for station in vex['STATION']:
 # Create a dictory in which we store if a station is Mark5A, Mark5B, VLBA or VDIF
 media_type = {}
 for station in vex['STATION']:
-  das = vex['STATION'][station].getall('DAS')
+  das = vex['STATION'][station].getall('DAS')[0]
+  print(station, das)
   record_transport_type = vex['DAS'][das]['record_transport_type'].lower()
   if record_transport_type == 'mark5a':
     electronics_rack_type = vex['DAS'][das]['electronics_rack_type'].lower()
@@ -145,12 +142,12 @@ if options.file_parameters != None:
     for item in file_parameters["file_parameters"][station]["sources"]:
       t = item.partition(':')
       if t[2] == '':
-        print 'Error : badly formated location string in ', options.file_parameters
+        print('Error : badly formated location string in ', options.file_parameters)
         sys.exit(1)
       year = int(vex['EXPER'][exper]['exper_nominal_start'].partition('y')[0])
       type = media_type[station]
-      print ['ssh', t[0], 'get_file_list.py', '-y', `year`, type, t[2]]
-      a = subprocess.Popen(['ssh', t[0], 'get_file_list.py', '-y', `year`, type,\
+      print(['ssh', t[0], 'get_file_list.py', '-y', repr(year), type, t[2]])
+      a = subprocess.Popen(['ssh', t[0], 'get_file_list.py', '-y', repr(year), type,\
                             t[2]], stdout=subprocess.PIPE)
       lines = a.stdout.readlines()
       files = []
@@ -218,7 +215,7 @@ for scan_idx, scan in enumerate(vex['SCHED']):
 
     # Loop over all the "station" parameters in the scan, figuring out
     # the real length of the scan.
-    start_time = 0 if options.max_datagood else sys.maxint
+    start_time = 0 if options.max_datagood else sys.maxsize
     stop_time = 0
     for transfer in vex['SCHED'][scan].getall('station'):
         station = transfer[0]
@@ -251,7 +248,7 @@ for scan_idx, scan in enumerate(vex['SCHED']):
             offsets[station] = 0
             continue
         if transfer[3].split()[1] != 'GB':
-            raise AssertionError, "Unknown unit " + transfer[3].split()[1]
+            raise AssertionError("Unknown unit " + transfer[3].split()[1])
         offset = int(round(float(transfer[3].split()[0]) * 1e9))
         offsets[station] = offset
 
@@ -271,7 +268,7 @@ for scan_idx, scan in enumerate(vex['SCHED']):
                 oldfile = file
             if(oldfile != None):
                 data_source.append(oldfile[0])
-            print scan, ' : ', data_source        
+            print(scan, ' : ', data_source)        
             data_sources[station] = data_source
         elif options.evlbi:
             data_source = "/tmp/mk5-" + station + "/" + station + "-eVLBI:0"
