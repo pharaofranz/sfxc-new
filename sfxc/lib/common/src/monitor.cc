@@ -101,7 +101,8 @@ QOS_MonitorSpeed::~QOS_MonitorSpeed() {
 
     fout_.open(filename.str().c_str());
     if ( fout_.fail() ) {
-      MTHROW("Unable to open file: "+filename.str());
+      std::cerr << "~QOS_MonitorSpeed: Unable to open file " << filename.str() << "\n";
+      return;
     }
     fout_ << "[" << std::endl;
 

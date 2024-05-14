@@ -15,6 +15,7 @@
 #define EXCEPTION_COMMON_HH_INCLUDED
 
 #include <string.h>
+#include <assert.h>
 #include <stdexcept>
 #include "backtrace.h"
 
@@ -113,7 +114,8 @@ protected:
     {                                       \
         Backtrace bt;      \
         std::cout << bt << std::endl; sleep(1); \
-        throw Exception(#condi, bt);  \
+        assert(condi); \
+        /* throw Exception(#condi, bt);*/ \
     }
 
 /******************************************
