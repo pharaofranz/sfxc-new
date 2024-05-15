@@ -778,8 +778,12 @@ void Manager_node::send_global_header(){
   if (strchr(svn_version, ':'))
     svn_version = strchr(svn_version, ':') + 1;
   output_header->svn_version = atoi(svn_version);
-  strncpy(output_header->correlator_version, SVN_VERSION,
-	  sizeof(output_header->correlator_version) - 1);
+
+  size_t correlator_version_size = sizeof(output_header->correlator_version);
+  strncpy(output_header->correlator_version, CORRELATOR_VERSION,
+	  correlator_version_size - 1);
+  output_header->correlator_version[correlator_version_size - 1] = 0;
+
 
   output_header->polarisation_type =
     control_parameters.polarisation_type_for_global_output_header(get_current_mode());

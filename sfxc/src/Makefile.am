@@ -83,6 +83,5 @@ sfxc_DEPENDENCIES = update_svn_version svn_version.$(OBJEXT)
 svn_version.cc: update_svn_version
 
 update_svn_version:
-	echo "const char *SVN_VERSION=\"`svnversion -nc ..`\";" > svn_version.cc
-	echo "const char *SVN_BRANCH=\"TRUNK\";" >> svn_version.cc
+	../sfxc_version.sh > svn_version.cc
 	$(CXX) $(CXXFLAGS) -c svn_version.cc
