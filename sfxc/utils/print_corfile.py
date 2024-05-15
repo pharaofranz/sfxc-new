@@ -24,6 +24,10 @@ def parse_global_header(infile, doprint):
     nstations = global_header[13]
     stations_offset = global_header[14]
     nsources = global_header[15]
+    if stations_offset > 92:
+      correlator_version = gheader_buf[92:156].strip('\0')
+    else:
+      correlator_version = ""
     splitted = gheader_buf[stations_offset:].split('\0')
     stations = splitted[:nstations]
     sources = splitted[nstations:(nstations+nsources)]
@@ -39,7 +43,11 @@ def parse_global_header(infile, doprint):
       print "SFXC version = %s"%(global_header[8])
     else:
       n = global_header[10].index('\0')
-      print "SFXC version = %s, branch = %s, jobnr = %d, subjobnr = %d"%(global_header[8], global_header[10][:n], global_header[11], global_header[12])
+      if correlator_version == "":
+        print "SFXC version = %s, branch = %s, jobnr = %d, subjobnr = %d"%(global_header[8], global_header[10][:n], global_header[11], global_header[12])
+      else:
+        print "SFXC version = %s, branch = %s, correlator_version = %s, jobnr = %d, subjobnr = %di"%(global_header[8], global_header[10][:n], correlator_version, global_header[11], global_header[12])
+      
 
     pol = ['LL', 'RR', 'LL+RR', 'LL+RR+LR+RL'][global_header[9]]
     n = global_header[1].index('\0')
