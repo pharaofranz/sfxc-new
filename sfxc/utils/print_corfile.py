@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function
 import sys, struct, pdb
 from numpy import *
 from optparse import OptionParser
@@ -25,37 +26,38 @@ def parse_global_header(infile, doprint):
     stations_offset = global_header[14]
     nsources = global_header[15]
     if stations_offset > 92:
-      correlator_version = gheader_buf[92:156].strip('\0')
+      correlator_version = gheader_buf[92:156].strip(b'\0').decode()
     else:
       correlator_version = ""
-    splitted = gheader_buf[stations_offset:].split('\0')
+    splitted = [x.decode() for x in gheader_buf[stations_offset:].split(b'\0')]
     stations = splitted[:nstations]
     sources = splitted[nstations:(nstations+nsources)]
 
-  hour = global_header[4] / (60*60)
-  minute = (global_header[4]%(60*60))/60
+  hour = global_header[4] // (60*60)
+  minute = (global_header[4]%(60*60)) // 60
   second = global_header[4]%60
   inttime = global_header[6]
   nchan = global_header[5]
  
   if doprint: 
     if global_header_size == 64:
-      print "SFXC version = %s"%(global_header[8])
+      print("SFXC version = %d"%(global_header[8]))
     else:
-      n = global_header[10].index('\0')
+      n = global_header[10].index(b'\0')
+      sfxc_branch = global_header[10][:n].decode()
       if correlator_version == "":
-        print "SFXC version = %s, branch = %s, jobnr = %d, subjobnr = %d"%(global_header[8], global_header[10][:n], global_header[11], global_header[12])
+        print("SFXC version = %d, branch = %s, jobnr = %d, subjobnr = %d"%(global_header[8], sfxc_branch, global_header[11], global_header[12]))
       else:
-        print "SFXC version = %s, branch = %s, correlator_version = %s, jobnr = %d, subjobnr = %di"%(global_header[8], global_header[10][:n], correlator_version, global_header[11], global_header[12])
+        print("SFXC version = %d, branch = %s, correlator_version = %s, jobnr = %d, subjobnr = %d"%(global_header[8], sfxc_branch, correlator_version, global_header[11], global_header[12]))
       
-
     pol = ['LL', 'RR', 'LL+RR', 'LL+RR+LR+RL'][global_header[9]]
-    n = global_header[1].index('\0')
-    print "Experiment %s, date = %dy%03dd%02dh%02dm%02ds, int_time = %d, nchan = %d, polarization = %s"%(global_header[1][:n], global_header[2], global_header[3], hour, minute, second, inttime, nchan, pol)
+    n = global_header[1].index(b'\0')
+    experiment = global_header[1][:n].decode()
+    print("Experiment %s, date = %dy%03dd%02dh%02dm%02ds, int_time = %d, nchan = %d, polarization = %s"%(experiment, global_header[2], global_header[3], hour, minute, second, inttime, nchan, pol))
 
     if global_header_size >= 92:
-        print 'Stations =', ", ".join(stations)
-        print 'Sources =', ", ".join(sources)
+        print('Stations =', ", ".join(stations))
+        print('Sources =', ", ".join(sources))
 
   start_date = (global_header[2], global_header[3], 60 * (hour*60 + minute) + second)
   return start_date, nchan, inttime, stations, sources
@@ -75,37 +77,37 @@ def make_time_string(start_date, inttime, slicenr):
     return "%dy%03dd%02dh%02dm%09.6fs"%(newyear, newday, hours, minutes, second)
 
 def print_uvw(uvws, stations=None, sources=None):
-  for uvw in uvws.iteritems():
+  for uvw in uvws.items():
     if stations == None:
-      print "Station", uvw[0]
+      print("Station", uvw[0])
     else:
-      print "Station", stations[uvw[0]]
+      print("Station", stations[uvw[0]])
     for src, nstr in uvw[1]:
       if sources != None:
-        print "Source {}: {}".format(sources[src], nstr)
+        print("Source {}: {}".format(sources[src], nstr))
       else:
-        print nstr
+        print(nstr)
 
 def print_stats(stats, stations=None):
-  for stat in stats.iteritems():
+  for stat in stats.items():
     if stations == None:
-      print "Station", stat[0]
+      print("Station", stat[0])
     else:
-      print "Station", stations[stat[0]]
+      print("Station", stations[stat[0]])
     for nstr in stat[1]:
-      print nstr
+      print(nstr)
 
 def print_baselines(data, stations=None):
-  keys = data.keys()
+  keys = list(data.keys())
   keys.sort()
   for key in keys:
     bl = data[key]
     if stations == None:
-      print "Baseline: station1 = %s, station2 = %s"%(key[0], key[1])
+      print("Baseline: station1 = %s, station2 = %s"%(key[0], key[1]))
     else:
-      print "Baseline: station1 = %s, station2 = %s"%(stations[key[0]], stations[key[1]])
+      print("Baseline: station1 = %s, station2 = %s"%(stations[key[0]], stations[key[1]]))
     for nstr in bl:
-      print nstr
+      print(nstr)
 
 def get_baseline_stats(data):
   data[0] = data[0].real
@@ -125,7 +127,7 @@ def get_baseline_stats(data):
   noise  = pow(real_data[r1_min:r1_max] - avg, 2).sum()
   noise += pow(real_data[r2_min:r2_max] - avg, 2).sum()
   snr = sqrt(((fringe_val - avg)**2) * navg / max(noise, 1e-12))
-  fringe_offset = fringe_pos - n / 2
+  fringe_offset = fringe_pos - n // 2
   return (fringe_val, snr, fringe_offset)
 
 def read_uvw(infile, uvw, nuvw):
@@ -207,7 +209,7 @@ def read_baselines(infile, data, nbaseline, nchan, printauto):
         except KeyError:
           data[baseline] = [nstr]
       else:
-        print "b="+`baseline`+", freq_nr = "+`freq_nr`+",sb="+`sideband`+",pol="+`pol`
+        print("b="+repr(baseline)+", freq_nr = "+repr(freq_nr)+",sb="+repr(sideband)+",pol="+repr(pol))
         pdb.set_trace()
     index += baseline_data_size
 
@@ -257,7 +259,7 @@ def get_stations(vex_file):
     line = rawline.lstrip()
 
   if len(stations) == 0:
-    print "Error, no stations found in vex_file : ", vex_file
+    print("Error, no stations found in vex_file : ", vex_file)
     sys.exit(1)
   stations.sort()
   return stations
@@ -291,7 +293,7 @@ filename, noheader, printstats, printvis, printuvw, printauto, vex_file = get_op
 try:
   infile = open(filename, 'rb')
 except:
-  print "Could not open file : " + filename
+  print("Could not open file : " + filename)
   sys.exit()
 
 # Read global header
@@ -312,14 +314,14 @@ while True:
   data = {}
   try:
     slicenr = read_time_slice(infile, stats, uvw, data, nchan, printauto)
-  except Exception, e:
+  except Exception as e:
     if e.args[0] != 'EOF':
       raise
-    print "Reached end of file"
+    print("Reached end of file")
     sys.exit(0)
    
   t = make_time_string(start_date, inttime, slicenr)
-  print "---------- time slice %d, t = %s ---------"%(slicenr, t)
+  print("---------- time slice %d, t = %s ---------"%(slicenr, t))
   if printstats:
     print_stats(stats, stations)
 
